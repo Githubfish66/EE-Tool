@@ -1,5 +1,15 @@
 # Completed
 
+## Pair compensator values with circuit artwork
+
+- Completion date: 2026-05-22
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added the selected compensator topology diagram beside the component value table so symbols such as R1, R2, C1, C2, and C3 can be matched to calculated values without opening calculation steps. Kept the existing circuit diagram in the calculation flow and added a responsive stacked layout for narrower viewports. Validation passed with `npm run test` and `npm run build`.
+
 ## Update compensator circuit artwork
 
 - Completion date: 2026-05-22
