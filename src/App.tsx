@@ -1648,21 +1648,27 @@ function CompensatorResultPanel({
 
       <section className="formula-panel">
         <h2>{t.componentValues}</h2>
-        <div className="component-table">
-          <div className="component-row heading">
-            <span>Symbol</span>
-            <span>Ideal</span>
-            <span>Recommended</span>
-          </div>
-          {result.components.map((component) => (
-            <div key={component.label} className="component-row">
-              <strong>
-                <EngineeringText text={component.label} />
-              </strong>
-              <span>{formatRawComponent(component)}</span>
-              <span>{formatCompensatorComponent(component)}</span>
+        <div className="component-values-layout">
+          <div className="component-table">
+            <div className="component-row heading">
+              <span>Symbol</span>
+              <span>Ideal</span>
+              <span>Recommended</span>
             </div>
-          ))}
+            {result.components.map((component) => (
+              <div key={component.label} className="component-row">
+                <strong>
+                  <EngineeringText text={component.label} />
+                </strong>
+                <span>{formatRawComponent(component)}</span>
+                <span>{formatCompensatorComponent(component)}</span>
+              </div>
+            ))}
+          </div>
+          <section className="component-circuit-panel" aria-label={t.circuitDiagram}>
+            <h3>{t.circuitDiagram}</h3>
+            <CompensatorCircuitDiagram type={result.compensatorType} />
+          </section>
         </div>
       </section>
 

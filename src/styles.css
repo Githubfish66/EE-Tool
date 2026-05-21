@@ -619,10 +619,17 @@ textarea:focus {
   margin-top: 12px;
 }
 
+.component-values-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr);
+  gap: 14px;
+  align-items: start;
+  margin-top: 12px;
+}
+
 .component-table {
   display: grid;
   gap: 8px;
-  margin-top: 12px;
 }
 
 .component-row {
@@ -649,6 +656,24 @@ textarea:focus {
 .component-row strong,
 .component-row span {
   overflow-wrap: anywhere;
+}
+
+.component-circuit-panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-soft);
+}
+
+.component-circuit-panel h3 {
+  margin-bottom: 10px;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.component-circuit-panel .circuit-diagram {
+  margin-top: 0;
 }
 
 .simetrix-component-table {
@@ -1343,6 +1368,10 @@ textarea:focus {
 
   .summary-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .component-values-layout {
+    grid-template-columns: 1fr;
   }
 
   .procurement-grid,
