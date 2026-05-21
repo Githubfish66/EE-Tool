@@ -2,8 +2,7 @@
   color: #18212f;
   background: #f4f6f8;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    "Times New Roman", Times, "Noto Serif TC", "PMingLiU", "MingLiU", serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -23,8 +22,17 @@ select {
   font: inherit;
 }
 
+textarea {
+  font: inherit;
+}
+
 button {
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .app-frame {
@@ -63,6 +71,7 @@ button {
 
 .brand-block strong {
   font-size: 1.2rem;
+  letter-spacing: 0;
 }
 
 .feature-nav nav {
@@ -79,6 +88,7 @@ button {
   background: transparent;
   color: #cdd6e3;
   text-align: left;
+  font-size: 1rem;
 }
 
 .feature-nav button.active {
@@ -110,7 +120,7 @@ button {
 .eyebrow {
   margin: 0 0 8px;
   color: #0b6b5f;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -126,8 +136,8 @@ p {
 h1 {
   margin-bottom: 10px;
   color: #101722;
-  font-size: clamp(2rem, 5vw, 4rem);
-  line-height: 1;
+  font-size: clamp(2rem, 5vw, 3.65rem);
+  line-height: 1.05;
   letter-spacing: 0;
 }
 
@@ -135,8 +145,8 @@ h1 {
   max-width: 760px;
   margin-bottom: 0;
   color: #52606f;
-  font-size: 1rem;
-  line-height: 1.65;
+  font-size: 1.05rem;
+  line-height: 1.58;
 }
 
 .language-switch {
@@ -187,6 +197,10 @@ h1 {
   align-items: start;
 }
 
+.workspace.compensator-workspace {
+  grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+}
+
 .input-panel,
 .result-panel,
 .reference-panel {
@@ -235,9 +249,74 @@ h1 {
   background: #075f55;
 }
 
+.run-analysis:disabled:hover {
+  background: #0b6b5f;
+}
+
 .field-grid {
   display: grid;
   gap: 12px;
+}
+
+.compensator-input {
+  position: static;
+}
+
+.subpanel {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  border-top: 1px solid #dce3eb;
+  padding-top: 16px;
+}
+
+.subpanel h3 {
+  margin-bottom: 0;
+  color: #243143;
+  font-size: 0.95rem;
+}
+
+.subpanel p {
+  margin-bottom: 0;
+  color: #607086;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.subpanel input[type="file"] {
+  min-height: 40px;
+  border: 1px solid #cbd4df;
+  border-radius: 6px;
+  padding: 8px;
+  background: #ffffff;
+}
+
+.subpanel textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  border: 1px solid #cbd4df;
+  border-radius: 6px;
+  padding: 10px;
+  color: #111827;
+  font-family: "Cambria Math", "Times New Roman", "Noto Serif TC", serif;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.csv-summary {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fafc;
+  color: #344256;
+  font-size: 0.86rem;
+}
+
+.csv-summary strong {
+  color: #162033;
 }
 
 .number-field {
@@ -246,6 +325,23 @@ h1 {
   color: #394758;
   font-size: 0.9rem;
   font-weight: 650;
+}
+
+.select-field {
+  display: grid;
+  gap: 6px;
+  color: #394758;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.select-field select {
+  min-height: 40px;
+  border: 1px solid #cbd4df;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #111827;
 }
 
 .number-field div {
@@ -286,6 +382,24 @@ h1 {
   font-weight: 750;
 }
 
+.eng-symbol {
+  display: inline-block;
+  font-family: "Cambria Math", "Times New Roman", "Noto Serif TC", serif;
+  white-space: nowrap;
+}
+
+.eng-symbol i {
+  font-style: italic;
+}
+
+.eng-symbol sub {
+  font-size: 0.68em;
+  line-height: 0;
+  vertical-align: -0.32em;
+  margin-left: 0.02em;
+  font-style: normal;
+}
+
 .result-panel {
   padding: 18px;
 }
@@ -294,6 +408,10 @@ h1 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
+}
+
+.summary-strip.compact {
+  margin-top: 12px;
 }
 
 .metric {
@@ -307,7 +425,7 @@ h1 {
 .metric span {
   display: block;
   color: #607086;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 800;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -317,7 +435,8 @@ h1 {
   display: block;
   margin-top: 12px;
   color: #111827;
-  font-size: clamp(1rem, 2vw, 1.45rem);
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-size: clamp(1rem, 2vw, 1.38rem);
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
@@ -376,6 +495,384 @@ h1 {
   margin-top: 12px;
 }
 
+.component-table {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.component-row {
+  display: grid;
+  grid-template-columns: 0.8fr 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+  color: #344256;
+  font-size: 0.98rem;
+}
+
+.component-row.heading {
+  background: #f8fafc;
+  color: #607086;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.component-row strong,
+.component-row span {
+  overflow-wrap: anywhere;
+}
+
+.zero-pole-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.zero-pole-list > p {
+  margin-bottom: 0;
+  color: #607086;
+}
+
+.equation-readout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+
+.bode-plot-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.bode-panel-title {
+  margin: 0;
+  color: #111827;
+  font-family: Arial, Helvetica, "Noto Serif TC", sans-serif;
+  font-size: 1.08rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.chart-help {
+  margin: 0;
+  color: #607086;
+  line-height: 1.5;
+}
+
+.trace-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.trace-toggles label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid #dce3eb;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #344256;
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-weight: 750;
+}
+
+.trace-toggles .katex {
+  font-size: 1em;
+}
+
+.plotly-bode-chart {
+  width: 100%;
+  min-height: 730px;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.margin-panel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calculation-steps {
+  margin-top: 20px;
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.calculation-steps summary {
+  display: grid;
+  gap: 5px;
+  padding: 16px 18px;
+  color: #172033;
+  cursor: pointer;
+}
+
+.calculation-steps summary span {
+  font-family: "Times New Roman", "Noto Serif TC", serif;
+  font-size: 1.18rem;
+  font-variant: small-caps;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.calculation-steps summary small {
+  color: #607086;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.step-list {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid #cfd8e3;
+  padding: 0 18px 18px;
+}
+
+.step-card {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  border-bottom: 1px solid #e4e9ef;
+  padding: 20px 0 20px 54px;
+  background: #ffffff;
+}
+
+.step-card:last-child {
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+
+.step-card::before {
+  content: attr(data-step);
+  position: absolute;
+  left: 0;
+  top: 20px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #94a3b8;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #172033;
+  font-family: "Times New Roman", serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.step-card h3 {
+  margin: 0;
+  color: #111827;
+  font-family: "Times New Roman", "Noto Serif TC", serif;
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.step-card p {
+  max-width: 860px;
+  margin: 0;
+  color: #374151;
+  font-size: 0.98rem;
+  line-height: 1.62;
+}
+
+.step-card .summary-strip.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.step-card .metric {
+  min-height: 72px;
+  border-color: #e1e7ef;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.step-card .metric span {
+  font-size: 0.76rem;
+}
+
+.step-card .metric strong {
+  font-size: clamp(0.98rem, 1.5vw, 1.18rem);
+}
+
+.bode-chart {
+  display: block;
+  width: 100%;
+  min-height: 390px;
+  border: 1px solid #b7b7b7;
+  border-radius: 0;
+  background: #ffffff;
+  cursor: crosshair;
+}
+
+.chart-frame rect {
+  fill: #ffffff;
+  stroke: #4a4a4a;
+  stroke-width: 1;
+}
+
+.chart-frame .major-grid line {
+  stroke: #cfcfcf;
+  stroke-width: 1;
+}
+
+.chart-frame .minor-grid line {
+  stroke: #a9a9a9;
+  stroke-dasharray: 2 4;
+  stroke-width: 0.8;
+}
+
+.chart-frame text,
+.axis-label {
+  fill: #333333;
+  font-family: Arial, Helvetica, "Noto Serif TC", serif;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.bode-title {
+  fill: #111111;
+  font-family: Arial, Helvetica, "Noto Serif TC", serif;
+  font-size: 17px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.x-tick-label {
+  text-anchor: middle;
+}
+
+.bode-line {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.bode-line.magnitude {
+  stroke: #0072bd;
+}
+
+.bode-line.phase {
+  stroke: #0072bd;
+}
+
+.bode-marker line {
+  stroke: #263346;
+  stroke-dasharray: 5 5;
+  stroke-width: 1.5;
+}
+
+.bode-marker circle {
+  fill: #ffffff;
+  stroke: #263346;
+  stroke-width: 2.5;
+}
+
+.bode-marker.hover line {
+  stroke: #4f8fd9;
+}
+
+.bode-marker.hover circle {
+  stroke: #4f8fd9;
+}
+
+.pole-zero-marker line {
+  stroke-width: 1.2;
+  stroke-dasharray: 3 5;
+}
+
+.pole-zero-marker.zero line {
+  stroke: #0b6b5f;
+}
+
+.pole-zero-marker.pole line {
+  stroke: #9a241b;
+}
+
+.pole-zero-marker text {
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 4px;
+  fill: #263346;
+  font-family: Arial, Helvetica, "Noto Serif TC", serif;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pole-zero-marker circle {
+  fill: #ffffff;
+  stroke: #0b6b5f;
+  stroke-width: 2.2;
+}
+
+.pole-zero-marker .pole-cross {
+  stroke: #9a241b;
+  stroke-dasharray: none;
+  stroke-width: 2.4;
+}
+
+.pole-zero-marker.zero text {
+  fill: #0b6b5f;
+}
+
+.pole-zero-marker.pole text {
+  fill: #9a241b;
+}
+
+.measurement-panel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.measurement-card {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  color: #344256;
+  font-size: 0.92rem;
+}
+
+.measurement-card strong {
+  color: #172033;
+  font-size: 0.95rem;
+}
+
+.circuit-diagram {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.circuit-diagram img {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+}
+
 .formula-row {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
@@ -384,6 +881,19 @@ h1 {
   border: 1px solid #dce3eb;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.step-card .formula-row {
+  grid-template-columns: 1fr;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.step-card .formula-row > p {
+  color: #4b5563;
+  font-size: 0.94rem;
 }
 
 .formula-row h3 {
@@ -406,6 +916,72 @@ h1 {
   overflow-wrap: anywhere;
   overflow-x: auto;
   white-space: nowrap;
+}
+
+.formula-expression.equation-display {
+  background: #f7fafc;
+  color: #172033;
+  font-size: clamp(1.18rem, 2vw, 1.72rem);
+  font-weight: 650;
+}
+
+.formula-expression.equation-display .math-formula {
+  color: #172033;
+}
+
+.formula-expression.compact-equation {
+  margin-top: 10px;
+  font-size: clamp(1rem, 1.5vw, 1.3rem);
+}
+
+.formula-expression.equation-block {
+  position: relative;
+  border: 0;
+  border-top: 1px solid #d8dee7;
+  border-bottom: 1px solid #d8dee7;
+  border-radius: 0;
+  padding: 18px 48px;
+  background: #ffffff;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.formula-expression.equation-block::after {
+  content: "(eq.)";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+  font-family: "Times New Roman", serif;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+.formula-expression.equation-block .math-formula {
+  margin: 0 auto;
+}
+
+.formula-expression.equation-block .katex-display {
+  margin: 0;
+}
+
+.formula-expression.equation-block .katex {
+  font-size: 1.08em;
+}
+
+.latex-formula {
+  display: block;
+  min-width: max-content;
+}
+
+.latex-inline {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.latex-inline .katex {
+  font-size: 1em;
 }
 
 .math-formula {
@@ -533,7 +1109,8 @@ h1 {
   gap: 10px;
 }
 
-.reference-list a {
+.reference-list a,
+.reference-card {
   display: grid;
   gap: 6px;
   border: 1px solid #dce3eb;
@@ -549,7 +1126,8 @@ h1 {
   background: #f3fbfa;
 }
 
-.reference-list span {
+.reference-list span,
+.reference-card span {
   color: #0b6b5f;
   font-size: 0.74rem;
   font-weight: 850;
@@ -557,12 +1135,14 @@ h1 {
   text-transform: uppercase;
 }
 
-.reference-list strong {
+.reference-list strong,
+.reference-card strong {
   font-size: 0.92rem;
   line-height: 1.25;
 }
 
-.reference-list small {
+.reference-list small,
+.reference-card small {
   color: #607086;
   line-height: 1.45;
 }
@@ -602,7 +1182,11 @@ h1 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .procurement-grid {
+  .procurement-grid,
+  .zero-pole-list,
+  .equation-readout,
+  .margin-panel,
+  .measurement-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -623,6 +1207,11 @@ h1 {
 
   .summary-strip,
   .procurement-grid,
+  .zero-pole-list,
+  .equation-readout,
+  .margin-panel,
+  .measurement-panel,
+  .component-row,
   .formula-row {
     grid-template-columns: 1fr;
   }

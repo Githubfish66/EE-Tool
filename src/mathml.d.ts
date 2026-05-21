@@ -11,3 +11,19 @@ declare namespace JSX {
     mtext: any;
   }
 }
+
+declare module "*?raw" {
+  const content: string;
+  export default content;
+}
+
+declare module "*.jpg" {
+  const src: string;
+  export default src;
+}
+
+declare module "plotly.js-basic-dist-min" {
+  import type * as Plotly from "plotly.js";
+  const PlotlyBasic: typeof Plotly;
+  export default PlotlyBasic;
+}

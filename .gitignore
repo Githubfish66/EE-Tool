@@ -1,7 +1,32 @@
+# AI Rules (personal, do not share)
+CLAUDE.md
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
-*.log
+build/
+.next/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Local templates
 ai_project_rules_template_universal.md
