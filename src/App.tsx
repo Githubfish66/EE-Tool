@@ -6,6 +6,20 @@ import PlotlyBasic from "plotly.js-basic-dist-min";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import {
+  Calculator,
+  CircuitBoard,
+  Download,
+  FileCode2,
+  FileText,
+  Gauge,
+  Languages,
+  Play,
+  RotateCcw,
+  SlidersHorizontal,
+  Zap,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
   CalculationResult,
   Message,
   MethodId,
@@ -71,6 +85,15 @@ const compensatorTypeLabels: Record<CompensatorType, string> = {
 const compensatorModeLabels: Record<CompensatorDesignMode, string> = {
   auto: "Auto k-factor",
   manual: "Manual pole-zero",
+};
+
+const featureIcons: Record<FeatureId | "gate" | "rc" | "loss", LucideIcon> = {
+  bootstrap: Calculator,
+  compensator: Gauge,
+  simetrix: FileCode2,
+  gate: SlidersHorizontal,
+  rc: CircuitBoard,
+  loss: Zap,
 };
 
 const unitSets: Record<string, UnitOption[]> = {
@@ -191,7 +214,7 @@ const translations = {
     chartHelp: "移動游標讀值，點擊設定 A/B 標記，再次點擊重新開始量測。",
     noBodeData: "尚未匯入有效 Bode CSV。",
     pendingTitle: "尚未執行分析",
-    pendingBody: "設定參數後按下執行分析，工具才會計算 bootstrap 電容、公式推導與推薦料件。",
+    pendingBody: "設定參數後按下執行分析，工具才會計算結果、公式推導與設計建議。",
     staleNotice: "參數已變更，請重新執行分析以更新結果。",
     guidance:
       "此工具提供工程估算與公式追溯，最終仍需依 gate driver、MOSFET、diode、電容 DC bias、layout 與實測波形確認。",
@@ -265,7 +288,7 @@ const translations = {
     chartHelp: "Move the pointer to read values. Click to set A/B markers; click again to restart measurement.",
     noBodeData: "No valid Bode CSV has been imported yet.",
     pendingTitle: "Analysis has not run yet",
-    pendingBody: "Set the parameters, then run analysis to calculate bootstrap capacitance, formula trace, and recommended parts.",
+    pendingBody: "Set the parameters, then run analysis to calculate results, formula trace, and design guidance.",
     staleNotice: "Parameters changed. Run analysis again to update the result.",
     guidance:
       "Engineering guidance only. Verify final values with gate-driver limits, MOSFET data, diode stress, capacitor DC bias, layout, and measured waveforms.",
@@ -593,6 +616,12 @@ export function App() {
   const activeUnits = units[method];
   const t = translations[locale];
   const featureHeader = getFeatureHeader(feature, locale);
+  const BootstrapIcon = featureIcons.bootstrap;
+  const CompensatorIcon = featureIcons.compensator;
+  const SimetrixIcon = featureIcons.simetrix;
+  const GateIcon = featureIcons.gate;
+  const RcIcon = featureIcons.rc;
+  const LossIcon = featureIcons.loss;
 
   function updateValue(key: string, value: number) {
     setValues((current) => ({
@@ -785,6 +814,7 @@ export function App() {
             type="button"
             onClick={() => setFeature("bootstrap")}
           >
+            <BootstrapIcon aria-hidden="true" size={18} />
             {t.features.bootstrap}
           </button>
           <button
@@ -792,6 +822,7 @@ export function App() {
             type="button"
             onClick={() => setFeature("compensator")}
           >
+            <CompensatorIcon aria-hidden="true" size={18} />
             {t.features.compensator}
           </button>
           <button
@@ -799,15 +830,19 @@ export function App() {
             type="button"
             onClick={() => setFeature("simetrix")}
           >
+            <SimetrixIcon aria-hidden="true" size={18} />
             {t.features.simetrix}
           </button>
           <button type="button" disabled>
+            <GateIcon aria-hidden="true" size={18} />
             {t.features.gate}
           </button>
           <button type="button" disabled>
+            <RcIcon aria-hidden="true" size={18} />
             {t.features.rc}
           </button>
           <button type="button" disabled>
+            <LossIcon aria-hidden="true" size={18} />
             {t.features.loss}
           </button>
         </nav>
@@ -821,7 +856,10 @@ export function App() {
             <p className="subtitle">{featureHeader.subtitle}</p>
           </div>
           <label className="language-switch">
-            <span>{t.language}</span>
+            <span>
+              <Languages aria-hidden="true" size={16} />
+              {t.language}
+            </span>
             <select value={locale} onChange={(event) => setLocale(event.target.value as Locale)}>
               <option value="zh">Traditional Chinese</option>
               <option value="en">English</option>
@@ -955,6 +993,7 @@ function SimetrixWorkspace({
         <div className="panel-heading">
           <h2>Netlist 與 Sweep 設定</h2>
           <button type="button" onClick={onReset}>
+            <RotateCcw aria-hidden="true" size={16} />
             重設
           </button>
         </div>
@@ -963,6 +1002,7 @@ function SimetrixWorkspace({
           <h3>SIMetrix netlist 匯入</h3>
           <p>支援 SIMetrix/SPICE 文字 netlist；工具會偵測 Q、M、S、X 開頭的候選開關 instance。</p>
           <input
+            className="file-input"
             type="file"
             accept=".net,.cir,.txt,.sp,.sph"
             onChange={(event) => onFileImport(event.target.files?.[0] ?? null)}
@@ -1056,6 +1096,7 @@ function SimetrixWorkspace({
           <div className="panel-heading">
             <h2>產生的 .sxscr 腳本</h2>
             <button type="button" onClick={downloadScript} disabled={!scriptResult.script}>
+              <Download aria-hidden="true" size={16} />
               下載
             </button>
           </div>
@@ -1145,6 +1186,7 @@ function BootstrapWorkspace({
           <div className="panel-heading">
             <h2>{methodLabels[method]}</h2>
             <button type="button" onClick={onReset}>
+              <RotateCcw aria-hidden="true" size={16} />
               {t.reset}
             </button>
           </div>
@@ -1177,6 +1219,7 @@ function BootstrapWorkspace({
           )}
           <div className="analysis-actions">
             <button className="run-analysis" type="button" onClick={onRun}>
+              <Play aria-hidden="true" size={18} />
               {t.runAnalysis}
             </button>
           </div>
@@ -1267,14 +1310,19 @@ function CompensatorWorkspace({
           <div className="panel-heading">
             <h2>{compensatorTypeLabels[compensatorType]}</h2>
             <button type="button" onClick={onReset}>
+              <RotateCcw aria-hidden="true" size={16} />
               {t.reset}
             </button>
           </div>
 
           <section className="subpanel">
-            <h3>{t.csvInput}</h3>
+            <h3>
+              <FileText aria-hidden="true" size={16} />
+              {t.csvInput}
+            </h3>
             <p>{t.csvHelp}</p>
             <input
+              className="file-input"
               aria-label="Bode CSV file"
               type="file"
               accept=".csv,text/csv"
@@ -1330,6 +1378,7 @@ function CompensatorWorkspace({
               onClick={onRun}
               disabled={hasDangerCsv || bodePoints.length < 2}
             >
+              <Play aria-hidden="true" size={18} />
               {t.runAnalysis}
             </button>
           </div>
