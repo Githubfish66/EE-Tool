@@ -47,9 +47,9 @@ import {
   parseSimetrixNetlist,
 } from "./lib/simetrixScriptGenerator";
 import sampleBodeCsv from "../參考資料/bode plot example1.csv?raw";
-import type1Circuit from "../參考資料/Type I .jpg";
-import type2Circuit from "../參考資料/Type II.jpg";
-import type3Circuit from "../參考資料/Type III.jpg";
+import type1Circuit from "../參考資料/Type I polished.png";
+import type2Circuit from "../參考資料/Type II polished.png";
+import type3Circuit from "../參考資料/Type III polished.png";
 import {
   formatCapacitance,
   formatFrequency,
