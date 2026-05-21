@@ -1,5 +1,17 @@
 # Completed
 
+## Improve EE Tool visual design
+
+- Completion date: 2026-05-22
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `package.json`
+  - `package-lock.json`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Refreshed the app with a cleaner engineering dashboard style, modernized typography, surfaces, navigation, tabs, form controls, action buttons, metric cards, focus states, and added lucide-react icons for feature navigation and key actions. Updated shared pending-analysis copy to fit all tool pages. Validation passed with `npm run test`, `npm run build`, and browser checks on Bootstrap, Compensator, and SIMetrix views.
+
 ## Deploy EE Tool to Render
 
 - Completion date: 2026-05-21
