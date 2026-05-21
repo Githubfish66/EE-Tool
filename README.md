@@ -40,7 +40,7 @@ npm run build
 
 ## Git And Render
 
-This folder is a Git repository. To publish it:
+This folder is a Git repository. Push the latest committed code to GitHub:
 
 ```bash
 git status
@@ -53,8 +53,16 @@ git push -u origin main
 
 Create a Render Static Site from that GitHub repository:
 
-- Build command: `npm install && npm run build`
+- Render Dashboard: **New** -> **Static Site**
+- Repository: `Githubfish66/EE-Tool`
+- Branch: `main`
+- Build command: `npm ci && npm run build`
 - Publish directory: `dist`
+
+This repository also includes `render.yaml`, so you can create the site as a
+Render Blueprint instead. The Blueprint config deploys a static site named
+`ee-tool`, builds with `npm ci && npm run build`, publishes `./dist`, and
+rewrites all paths to `index.html` for client-side routing compatibility.
 
 ## Notes
 

@@ -201,6 +201,10 @@ h1 {
   grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
 }
 
+.workspace.simetrix-workspace {
+  grid-template-columns: minmax(360px, 520px) minmax(0, 1fr);
+}
+
 .input-panel,
 .result-panel,
 .reference-panel {
@@ -342,6 +346,25 @@ h1 {
   padding: 8px 10px;
   background: #ffffff;
   color: #111827;
+}
+
+.select-field input {
+  min-height: 40px;
+  border: 1px solid #cbd4df;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #111827;
+}
+
+.checkbox-row {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  color: #394758;
+  font-size: 0.9rem;
+  font-weight: 650;
 }
 
 .number-field div {
@@ -525,6 +548,43 @@ h1 {
 .component-row strong,
 .component-row span {
   overflow-wrap: anywhere;
+}
+
+.simetrix-component-table {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.simetrix-component-row {
+  grid-template-columns: 0.35fr 1fr 1fr;
+}
+
+.simetrix-component-row input {
+  width: 18px;
+  height: 18px;
+}
+
+.simetrix-component-row small {
+  display: block;
+  margin-top: 4px;
+  color: #607086;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.script-preview {
+  width: 100%;
+  min-height: 480px;
+  resize: vertical;
+  border: 1px solid #cbd4df;
+  border-radius: 8px;
+  padding: 14px;
+  background: #101722;
+  color: #eef6ff;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .zero-pole-list {

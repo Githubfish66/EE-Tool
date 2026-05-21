@@ -1,5 +1,27 @@
 # Completed
 
+## Deploy EE Tool to Render
+
+- Completion date: 2026-05-21
+- Modified files:
+  - `render.yaml`
+  - `README.md`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added a Render Static Site Blueprint that builds with `npm ci && npm run build`, publishes `./dist`, and rewrites paths to `index.html`. Updated deployment documentation for Render Dashboard and Blueprint setup. Validation passed with `npm run test` and `npm run build`.
+
+## Add SIMetrix sweep script generator
+
+- Completion date: 2026-05-21
+- Modified files:
+  - `src/lib/simetrixScriptGenerator.ts`
+  - `src/lib/simetrixScriptGenerator.test.ts`
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added a SIMetrix script tool that imports or pastes netlist text, detects Q/M/S/X switch candidates, lets users select references and enter model names, supports same-model and all-combination sweeps, previews/downloads `.sxscr`, and includes unit tests for parsing, model normalization, run counting, and script generation.
+
 ## Fix compensator exact topology formulas
 
 - Completion date: 2026-05-21
