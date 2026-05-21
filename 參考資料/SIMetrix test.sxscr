@@ -1,0 +1,26 @@
+
+
+* Select models to run
+Let models = ['IGC033S101_L1', 'IGC025S08S1_L1']
+
+** References to components using the models
+Let refs = ['Q5', 'Q1']
+
+
+foreach model models
+
+
+	** Set component value
+	foreach ref refs
+		Let SetComponentValue(ref & '.value', model)
+	next
+
+	** Create netlist
+	Netlist design.net
+
+	Echo {'Running simulation using ' & model}
+	** Run simulation
+	run design.net
+
+
+next

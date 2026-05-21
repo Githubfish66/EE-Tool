@@ -23,6 +23,15 @@ import {
   formatCompensatorComponent,
   parseBodeCsv,
 } from "./lib/compensatorCalculator";
+import {
+  SimetrixComponent,
+  SimetrixScriptOptions,
+  SimetrixSweepMode,
+  countSimetrixRuns,
+  generateSimetrixSweepScript,
+  normalizeModelList,
+  parseSimetrixNetlist,
+} from "./lib/simetrixScriptGenerator";
 import sampleBodeCsv from "../參考資料/bode plot example1.csv?raw";
 import type1Circuit from "../參考資料/Type I .jpg";
 import type2Circuit from "../參考資料/Type II.jpg";
@@ -38,7 +47,7 @@ import {
 type NumericState = Record<string, number>;
 type UnitState = Record<string, string>;
 type Locale = "zh" | "en";
-type FeatureId = "bootstrap" | "compensator";
+type FeatureId = "bootstrap" | "compensator" | "simetrix";
 
 type UnitOption = {
   label: string;
@@ -131,6 +140,10 @@ const translations = {
     compensatorTitle: "補償器計算器",
     compensatorSubtitle:
       "匯入 power stage Bode plot，依 Chapter 5 非隔離 op amp 補償器與 Appendix 5B k-factor 方法計算 Type I/II/III 元件。",
+    simetrixEyebrow: "SIMetrix 自動化",
+    simetrixTitle: "開關 Model Sweep 腳本產生器",
+    simetrixSubtitle:
+      "匯入 SIMetrix netlist，自動偵測 Q/M/S/X 開關候選元件，輸入待比較 model 後產生損耗分析用 .sxscr 腳本。",
     language: "語言",
     reset: "重設",
     references: "參考資料",
@@ -186,6 +199,7 @@ const translations = {
     features: {
       bootstrap: "Bootstrap 電容",
       compensator: "補償器計算",
+      simetrix: "SIMetrix 腳本",
       gate: "閘極電阻",
       rc: "RC 濾波",
       loss: "功耗計算",
@@ -200,6 +214,10 @@ const translations = {
     compensatorTitle: "Compensator Calculator",
     compensatorSubtitle:
       "Import a power-stage Bode plot, then calculate Type I/II/III non-isolated op amp compensator parts with Chapter 5 and Appendix 5B k-factor equations.",
+    simetrixEyebrow: "SIMetrix automation",
+    simetrixTitle: "Switch Model Sweep Script Generator",
+    simetrixSubtitle:
+      "Import a SIMetrix netlist, detect likely Q/M/S/X switching instances, enter model names, and generate a loss-analysis .sxscr sweep script.",
     language: "Language",
     reset: "Reset",
     references: "References",
@@ -255,6 +273,7 @@ const translations = {
     features: {
       bootstrap: "Bootstrap capacitor",
       compensator: "Compensator calculator",
+      simetrix: "SIMetrix script",
       gate: "Gate resistor",
       rc: "RC filter",
       loss: "Power loss",
@@ -527,6 +546,25 @@ const sourceLinks = [
   },
 ];
 
+function getFeatureHeader(feature: FeatureId, locale: Locale) {
+  const t = translations[locale];
+  if (feature === "bootstrap") {
+    return { eyebrow: t.eyebrow, title: t.title, subtitle: t.subtitle };
+  }
+  if (feature === "compensator") {
+    return {
+      eyebrow: t.compensatorEyebrow,
+      title: t.compensatorTitle,
+      subtitle: t.compensatorSubtitle,
+    };
+  }
+  return {
+    eyebrow: t.simetrixEyebrow,
+    title: t.simetrixTitle,
+    subtitle: t.simetrixSubtitle,
+  };
+}
+
 export function App() {
   const [feature, setFeature] = useState<FeatureId>("bootstrap");
   const [locale, setLocale] = useState<Locale>("zh");
@@ -544,9 +582,17 @@ export function App() {
   const [csvMessages, setCsvMessages] = useState(parseBodeCsv(sampleBodeCsv).messages);
   const [compAnalysis, setCompAnalysis] = useState<CompensatorResult | null>(null);
   const [compAnalysisDirty, setCompAnalysisDirty] = useState(false);
+  const [simetrixNetlistText, setSimetrixNetlistText] = useState("");
+  const [simetrixComponents, setSimetrixComponents] = useState<SimetrixComponent[]>([]);
+  const [selectedSimetrixRefs, setSelectedSimetrixRefs] = useState<string[]>([]);
+  const [simetrixModelsText, setSimetrixModelsText] = useState("IGC033S101_L1\nIGC025S08S1_L1");
+  const [simetrixSweepMode, setSimetrixSweepMode] = useState<SimetrixSweepMode>("same-model");
+  const [simetrixNetlistFileName, setSimetrixNetlistFileName] = useState("design.net");
+  const [createSimetrixNetlist, setCreateSimetrixNetlist] = useState(true);
   const activeValues = values[method];
   const activeUnits = units[method];
   const t = translations[locale];
+  const featureHeader = getFeatureHeader(feature, locale);
 
   function updateValue(key: string, value: number) {
     setValues((current) => ({
@@ -607,6 +653,39 @@ export function App() {
       return;
     }
     updateCsv(await file.text());
+  }
+
+  async function importSimetrixFile(file: File | null) {
+    if (!file) {
+      return;
+    }
+    setSimetrixNetlistFileName(file.name);
+    updateSimetrixNetlist(await file.text());
+  }
+
+  function updateSimetrixNetlist(text: string) {
+    const parsed = parseSimetrixNetlist(text);
+    setSimetrixNetlistText(text);
+    setSimetrixComponents(parsed.components);
+    setSelectedSimetrixRefs(parsed.components.map((component) => component.reference));
+  }
+
+  function toggleSimetrixReference(reference: string) {
+    setSelectedSimetrixRefs((current) =>
+      current.includes(reference)
+        ? current.filter((item) => item !== reference)
+        : [...current, reference],
+    );
+  }
+
+  function resetSimetrix() {
+    setSimetrixNetlistText("");
+    setSimetrixComponents([]);
+    setSelectedSimetrixRefs([]);
+    setSimetrixModelsText("IGC033S101_L1\nIGC025S08S1_L1");
+    setSimetrixSweepMode("same-model");
+    setSimetrixNetlistFileName("design.net");
+    setCreateSimetrixNetlist(true);
   }
 
   function resetMethod() {
@@ -715,6 +794,13 @@ export function App() {
           >
             {t.features.compensator}
           </button>
+          <button
+            className={feature === "simetrix" ? "active" : ""}
+            type="button"
+            onClick={() => setFeature("simetrix")}
+          >
+            {t.features.simetrix}
+          </button>
           <button type="button" disabled>
             {t.features.gate}
           </button>
@@ -730,13 +816,9 @@ export function App() {
       <main className="app-shell">
         <section className="tool-header">
           <div>
-            <p className="eyebrow">
-              {feature === "bootstrap" ? t.eyebrow : t.compensatorEyebrow}
-            </p>
-            <h1>{feature === "bootstrap" ? t.title : t.compensatorTitle}</h1>
-            <p className="subtitle">
-              {feature === "bootstrap" ? t.subtitle : t.compensatorSubtitle}
-            </p>
+            <p className="eyebrow">{featureHeader.eyebrow}</p>
+            <h1>{featureHeader.title}</h1>
+            <p className="subtitle">{featureHeader.subtitle}</p>
           </div>
           <label className="language-switch">
             <span>{t.language}</span>
@@ -761,7 +843,7 @@ export function App() {
             onReset={resetMethod}
             onRun={runAnalysis}
           />
-        ) : (
+        ) : feature === "compensator" ? (
           <CompensatorWorkspace
             locale={locale}
             compensatorType={compensatorType}
@@ -788,10 +870,233 @@ export function App() {
             onReset={resetCompensator}
             onRun={runCompensatorAnalysis}
           />
+        ) : (
+          <SimetrixWorkspace
+            components={simetrixComponents}
+            selectedReferences={selectedSimetrixRefs}
+            modelText={simetrixModelsText}
+            netlistText={simetrixNetlistText}
+            mode={simetrixSweepMode}
+            netlistFileName={simetrixNetlistFileName}
+            createNetlistBeforeRun={createSimetrixNetlist}
+            onFileImport={importSimetrixFile}
+            onNetlistTextChange={updateSimetrixNetlist}
+            onReferenceToggle={toggleSimetrixReference}
+            onModelTextChange={setSimetrixModelsText}
+            onModeChange={setSimetrixSweepMode}
+            onNetlistFileNameChange={setSimetrixNetlistFileName}
+            onCreateNetlistBeforeRunChange={setCreateSimetrixNetlist}
+            onReset={resetSimetrix}
+          />
         )}
       </main>
     </div>
   );
+}
+
+function SimetrixWorkspace({
+  components,
+  selectedReferences,
+  modelText,
+  netlistText,
+  mode,
+  netlistFileName,
+  createNetlistBeforeRun,
+  onFileImport,
+  onNetlistTextChange,
+  onReferenceToggle,
+  onModelTextChange,
+  onModeChange,
+  onNetlistFileNameChange,
+  onCreateNetlistBeforeRunChange,
+  onReset,
+}: {
+  components: SimetrixComponent[];
+  selectedReferences: string[];
+  modelText: string;
+  netlistText: string;
+  mode: SimetrixSweepMode;
+  netlistFileName: string;
+  createNetlistBeforeRun: boolean;
+  onFileImport: (file: File | null) => void;
+  onNetlistTextChange: (text: string) => void;
+  onReferenceToggle: (reference: string) => void;
+  onModelTextChange: (text: string) => void;
+  onModeChange: (mode: SimetrixSweepMode) => void;
+  onNetlistFileNameChange: (value: string) => void;
+  onCreateNetlistBeforeRunChange: (value: boolean) => void;
+  onReset: () => void;
+}) {
+  const models = normalizeModelList(modelText);
+  const runCount = countSimetrixRuns(selectedReferences.length, models.length, mode);
+  const scriptResult = buildSimetrixScriptPreview({
+    references: selectedReferences,
+    models,
+    mode,
+    netlistFileName,
+    createNetlistBeforeRun,
+  });
+
+  function downloadScript() {
+    if (!scriptResult.script) {
+      return;
+    }
+    const blob = new Blob([scriptResult.script], { type: "text/plain;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "simetrix_model_sweep.sxscr";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  return (
+    <section className="workspace simetrix-workspace">
+      <form className="input-panel simetrix-input">
+        <div className="panel-heading">
+          <h2>Netlist 與 Sweep 設定</h2>
+          <button type="button" onClick={onReset}>
+            重設
+          </button>
+        </div>
+
+        <div className="subpanel">
+          <h3>SIMetrix netlist 匯入</h3>
+          <p>支援 SIMetrix/SPICE 文字 netlist；工具會偵測 Q、M、S、X 開頭的候選開關 instance。</p>
+          <input
+            type="file"
+            accept=".net,.cir,.txt,.sp,.sph"
+            onChange={(event) => onFileImport(event.target.files?.[0] ?? null)}
+          />
+          <textarea
+            aria-label="SIMetrix netlist text"
+            placeholder="貼上或匯入 SIMetrix netlist..."
+            value={netlistText}
+            onChange={(event) => onNetlistTextChange(event.target.value)}
+          />
+        </div>
+
+        <div className="subpanel">
+          <h3>Model 清單</h3>
+          <p>每行或用逗號分隔一個 model，例如 IGC033S101_L1、IGC025S08S1_L1。</p>
+          <textarea
+            aria-label="SIMetrix model list"
+            value={modelText}
+            onChange={(event) => onModelTextChange(event.target.value)}
+          />
+        </div>
+
+        <label className="select-field">
+          <span>Sweep 模式</span>
+          <select value={mode} onChange={(event) => onModeChange(event.target.value as SimetrixSweepMode)}>
+            <option value="same-model">同組替換：所有選取開關使用同一個 model</option>
+            <option value="all-combinations">完整組合：每個開關各自排列所有 model</option>
+          </select>
+        </label>
+
+        <label className="select-field">
+          <span>Netlist 檔名</span>
+          <input
+            value={netlistFileName}
+            onChange={(event) => onNetlistFileNameChange(event.target.value)}
+          />
+        </label>
+
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={createNetlistBeforeRun}
+            onChange={(event) => onCreateNetlistBeforeRunChange(event.target.checked)}
+          />
+          <span>每次模擬前加入 Netlist 指令</span>
+        </label>
+      </form>
+
+      <section className="result-panel">
+        <div className="summary-strip compact">
+          <Metric label="候選開關" value={`${components.length}`} />
+          <Metric label="已選開關" value={`${selectedReferences.length}`} />
+          <Metric label="Model 數量" value={`${models.length}`} />
+          <Metric label="模擬次數" value={`${runCount}`} />
+        </div>
+
+        <section className="formula-panel">
+          <div className="panel-heading">
+            <h2>偵測到的開關元件</h2>
+          </div>
+          {components.length > 0 ? (
+            <div className="simetrix-component-table">
+              <div className="component-row heading">
+                <span>使用</span>
+                <span>Ref / 類型</span>
+                <span>原始 model</span>
+              </div>
+              {components.map((component) => (
+                <label key={component.reference} className="component-row simetrix-component-row">
+                  <span>
+                    <input
+                      type="checkbox"
+                      checked={selectedReferences.includes(component.reference)}
+                      onChange={() => onReferenceToggle(component.reference)}
+                    />
+                  </span>
+                  <strong>
+                    {component.reference}
+                    <small>{labelSimetrixKind(component.kind)}，line {component.lineNumber}</small>
+                  </strong>
+                  <span>{component.model ?? "N/A"}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="message info">尚未偵測到 Q/M/S/X 開關候選元件。</p>
+          )}
+        </section>
+
+        <section className="formula-panel">
+          <div className="panel-heading">
+            <h2>產生的 .sxscr 腳本</h2>
+            <button type="button" onClick={downloadScript} disabled={!scriptResult.script}>
+              下載
+            </button>
+          </div>
+          {scriptResult.error && <p className="message warning">{scriptResult.error}</p>}
+          <textarea
+            className="script-preview"
+            readOnly
+            value={scriptResult.script}
+            aria-label="Generated SIMetrix script"
+          />
+        </section>
+      </section>
+    </section>
+  );
+}
+
+function buildSimetrixScriptPreview(options: SimetrixScriptOptions): { script: string; error: string | null } {
+  try {
+    return {
+      script: generateSimetrixSweepScript(options),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      script: "",
+      error: error instanceof Error ? error.message : "Unable to generate SIMetrix script.",
+    };
+  }
+}
+
+function labelSimetrixKind(kind: SimetrixComponent["kind"]): string {
+  if (kind === "bjt_igbt") {
+    return "Q / BJT 或 IGBT";
+  }
+  if (kind === "mosfet") {
+    return "M / MOSFET";
+  }
+  if (kind === "switch") {
+    return "S / Switch";
+  }
+  return "X / Subcircuit";
 }
 
 function BootstrapWorkspace({
