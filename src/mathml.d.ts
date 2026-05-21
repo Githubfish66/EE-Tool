@@ -22,6 +22,11 @@ declare module "*.jpg" {
   export default src;
 }
 
+declare module "*.png" {
+  const src: string;
+  export default src;
+}
+
 declare module "plotly.js-basic-dist-min" {
   import type * as Plotly from "plotly.js";
   const PlotlyBasic: typeof Plotly;

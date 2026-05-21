@@ -1,5 +1,18 @@
 # Completed
 
+## Update compensator circuit artwork
+
+- Completion date: 2026-05-22
+- Modified files:
+  - `參考資料/Type I polished.png`
+  - `參考資料/Type II polished.png`
+  - `參考資料/Type III polished.png`
+  - `src/App.tsx`
+  - `src/mathml.d.ts`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added polished generated Type I, Type II, and Type III compensator circuit artwork, kept the original reference JPGs, switched the UI image imports to the new PNG files, and added PNG module typing for the TypeScript build. Validation passed with `npm run test` and `npm run build`.
+
 ## Improve EE Tool visual design
 
 - Completion date: 2026-05-22
