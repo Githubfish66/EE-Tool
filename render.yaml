@@ -1,6 +1,7 @@
 services:
-  - type: static
+  - type: web
     name: ee-tool
+    runtime: static
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
     routes:

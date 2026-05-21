@@ -61,8 +61,9 @@ Create a Render Static Site from that GitHub repository:
 
 This repository also includes `render.yaml`, so you can create the site as a
 Render Blueprint instead. The Blueprint config deploys a static site named
-`ee-tool`, builds with `npm ci && npm run build`, publishes `./dist`, and
-rewrites all paths to `index.html` for client-side routing compatibility.
+`ee-tool` using `type: web` with `runtime: static`, builds with
+`npm ci && npm run build`, publishes `./dist`, and rewrites all paths to
+`index.html` for client-side routing compatibility.
 
 ## Notes
 
