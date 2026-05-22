@@ -19,6 +19,11 @@ half-bridge gate-driver circuits.
 - Analysis runs only after the user clicks the run button; editing parameters
   marks the previous result as stale.
 - Recommended MLCC specification plus Digi-Key and Mouser search links.
+- SIMetrix model sweep script generator for selected switching instances.
+- Verilog-A model library with reusable `.va` source preview/download for a
+  timer-based dead-time generator and an externally windowed MOSFET loss monitor
+  that separates drain-path, gate-driver supply, conduction, turn-on, turn-off,
+  dead-time, and body-diode power waveforms.
 
 Live distributor stock and pricing require API keys, so this static frontend
 generates distributor search links instead of calling Digi-Key or Mouser APIs

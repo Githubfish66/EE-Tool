@@ -46,6 +46,13 @@ import {
   normalizeModelList,
   parseSimetrixNetlist,
 } from "./lib/simetrixScriptGenerator";
+import {
+  VerilogAModel,
+  VerilogAModelId,
+  formatVerilogAParameterAssignments,
+  getVerilogAModel,
+  verilogAModels,
+} from "./lib/verilogAModelLibrary";
 import sampleBodeCsv from "../參考資料/bode plot example1.csv?raw";
 import type1Circuit from "../參考資料/Type I polished.png";
 import type2Circuit from "../參考資料/Type II polished.png";
@@ -61,7 +68,7 @@ import {
 type NumericState = Record<string, number>;
 type UnitState = Record<string, string>;
 type Locale = "zh" | "en";
-type FeatureId = "bootstrap" | "compensator" | "simetrix";
+type FeatureId = "bootstrap" | "compensator" | "simetrix" | "verilog-a";
 
 type UnitOption = {
   label: string;
@@ -91,6 +98,7 @@ const featureIcons: Record<FeatureId | "gate" | "rc" | "loss", LucideIcon> = {
   bootstrap: Calculator,
   compensator: Gauge,
   simetrix: FileCode2,
+  "verilog-a": FileText,
   gate: SlidersHorizontal,
   rc: CircuitBoard,
   loss: Zap,
@@ -167,6 +175,10 @@ const translations = {
     simetrixTitle: "開關 Model Sweep 腳本產生器",
     simetrixSubtitle:
       "匯入 SIMetrix netlist，自動偵測 Q/M/S/X 開關候選元件，輸入待比較 model 後產生損耗分析用 .sxscr 腳本。",
+    verilogAEyebrow: "行為模型庫",
+    verilogATitle: "Verilog-A 功能模型",
+    verilogASubtitle:
+      "從可重用模型庫挑選控制小功能，檢視參數與原始碼後下載 .va 檔帶回 SIMetrix 使用。",
     language: "語言",
     reset: "重設",
     references: "參考資料",
@@ -223,6 +235,7 @@ const translations = {
       bootstrap: "Bootstrap 電容",
       compensator: "補償器計算",
       simetrix: "SIMetrix 腳本",
+      "verilog-a": "Verilog-A 模型",
       gate: "閘極電阻",
       rc: "RC 濾波",
       loss: "功耗計算",
@@ -241,6 +254,10 @@ const translations = {
     simetrixTitle: "Switch Model Sweep Script Generator",
     simetrixSubtitle:
       "Import a SIMetrix netlist, detect likely Q/M/S/X switching instances, enter model names, and generate a loss-analysis .sxscr sweep script.",
+    verilogAEyebrow: "Behavioral model library",
+    verilogATitle: "Verilog-A Function Models",
+    verilogASubtitle:
+      "Pick a reusable control utility, inspect its parameters and source, then download the .va file for SIMetrix.",
     language: "Language",
     reset: "Reset",
     references: "References",
@@ -297,6 +314,7 @@ const translations = {
       bootstrap: "Bootstrap capacitor",
       compensator: "Compensator calculator",
       simetrix: "SIMetrix script",
+      "verilog-a": "Verilog-A models",
       gate: "Gate resistor",
       rc: "RC filter",
       loss: "Power loss",
@@ -581,6 +599,13 @@ function getFeatureHeader(feature: FeatureId, locale: Locale) {
       subtitle: t.compensatorSubtitle,
     };
   }
+  if (feature === "verilog-a") {
+    return {
+      eyebrow: t.verilogAEyebrow,
+      title: t.verilogATitle,
+      subtitle: t.verilogASubtitle,
+    };
+  }
   return {
     eyebrow: t.simetrixEyebrow,
     title: t.simetrixTitle,
@@ -612,6 +637,7 @@ export function App() {
   const [simetrixSweepMode, setSimetrixSweepMode] = useState<SimetrixSweepMode>("same-model");
   const [simetrixNetlistFileName, setSimetrixNetlistFileName] = useState("design.net");
   const [createSimetrixNetlist, setCreateSimetrixNetlist] = useState(true);
+  const [verilogAModelId, setVerilogAModelId] = useState<VerilogAModelId>("deadtime-generator");
   const activeValues = values[method];
   const activeUnits = units[method];
   const t = translations[locale];
@@ -619,6 +645,7 @@ export function App() {
   const BootstrapIcon = featureIcons.bootstrap;
   const CompensatorIcon = featureIcons.compensator;
   const SimetrixIcon = featureIcons.simetrix;
+  const VerilogAIcon = featureIcons["verilog-a"];
   const GateIcon = featureIcons.gate;
   const RcIcon = featureIcons.rc;
   const LossIcon = featureIcons.loss;
@@ -833,6 +860,14 @@ export function App() {
             <SimetrixIcon aria-hidden="true" size={18} />
             {t.features.simetrix}
           </button>
+          <button
+            className={feature === "verilog-a" ? "active" : ""}
+            type="button"
+            onClick={() => setFeature("verilog-a")}
+          >
+            <VerilogAIcon aria-hidden="true" size={18} />
+            {t.features["verilog-a"]}
+          </button>
           <button type="button" disabled>
             <GateIcon aria-hidden="true" size={18} />
             {t.features.gate}
@@ -908,7 +943,7 @@ export function App() {
             onReset={resetCompensator}
             onRun={runCompensatorAnalysis}
           />
-        ) : (
+        ) : feature === "simetrix" ? (
           <SimetrixWorkspace
             components={simetrixComponents}
             selectedReferences={selectedSimetrixRefs}
@@ -926,9 +961,148 @@ export function App() {
             onCreateNetlistBeforeRunChange={setCreateSimetrixNetlist}
             onReset={resetSimetrix}
           />
+        ) : (
+          <VerilogAWorkspace
+            activeModel={getVerilogAModel(verilogAModelId)}
+            onModelChange={setVerilogAModelId}
+          />
         )}
       </main>
     </div>
+  );
+}
+
+function VerilogAWorkspace({
+  activeModel,
+  onModelChange,
+}: {
+  activeModel: VerilogAModel;
+  onModelChange: (modelId: VerilogAModelId) => void;
+}) {
+  const parameterAssignments = formatVerilogAParameterAssignments(activeModel);
+
+  function downloadModel() {
+    const blob = new Blob([activeModel.source], { type: "text/plain;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = activeModel.fileName;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  return (
+    <section className="workspace verilog-workspace">
+      <aside className="input-panel verilog-library-panel">
+        <div className="panel-heading">
+          <h2>模型庫</h2>
+        </div>
+
+        <div className="model-library-options" aria-label="Verilog-A model selection">
+          {verilogAModels.map((model) => (
+            <button
+              className={model.id === activeModel.id ? "model-option active" : "model-option"}
+              key={model.id}
+              type="button"
+              onClick={() => onModelChange(model.id)}
+            >
+              <span>{model.category}</span>
+              <strong>{model.title}</strong>
+              <small>{model.summary}</small>
+            </button>
+          ))}
+        </div>
+
+        <section className="subpanel">
+          <h3>功能行為</h3>
+          <ul className="verilog-note-list">
+            {activeModel.behavior.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="subpanel">
+          <h3>Port 定義</h3>
+          <div className="verilog-port-list">
+            {activeModel.ports.map((port) => (
+              <div className="verilog-port-row" key={port.name}>
+                <strong>{port.name}</strong>
+                <span>{port.direction}</span>
+                <small>{port.description}</small>
+              </div>
+            ))}
+          </div>
+        </section>
+      </aside>
+
+      <section className="result-panel">
+        <div className="summary-strip compact">
+          <Metric label="Module" value={activeModel.moduleName} />
+          <Metric label="File" value={activeModel.fileName} />
+          <Metric label="Parameters" value={`${activeModel.parameters.length}`} />
+          <Metric label="Ports" value={`${activeModel.ports.length}`} />
+        </div>
+
+        <section className="formula-panel">
+          <div className="panel-heading">
+            <h2>可調參數</h2>
+          </div>
+          <div className="verilog-parameter-table">
+            <div className="component-row heading verilog-parameter-row">
+              <span>參數</span>
+              <span>預設值</span>
+              <span>用途</span>
+            </div>
+            {activeModel.parameters.map((parameter) => (
+              <div className="component-row verilog-parameter-row" key={parameter.name}>
+                <strong>{parameter.name}</strong>
+                <span>{parameter.defaultValue}</span>
+                <span>{parameter.description}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="formula-panel">
+          <div className="panel-heading">
+            <h2>SIMetrix 參數貼上文字</h2>
+          </div>
+          <textarea
+            aria-label={`${activeModel.title} SIMetrix parameter assignments`}
+            className="parameter-preview"
+            readOnly
+            value={parameterAssignments}
+          />
+        </section>
+
+        <section className="formula-panel">
+          <div className="panel-heading">
+            <h2>Verilog-A 原始碼</h2>
+            <button type="button" onClick={downloadModel}>
+              <Download aria-hidden="true" size={16} />
+              下載 .va
+            </button>
+          </div>
+          <textarea
+            aria-label={`${activeModel.title} Verilog-A source`}
+            className="script-preview verilog-source"
+            readOnly
+            value={activeModel.source}
+          />
+        </section>
+
+        <section className="formula-panel">
+          <div className="panel-heading">
+            <h2>SIMetrix 使用流程</h2>
+          </div>
+          <ol className="verilog-use-steps">
+            {activeModel.useSteps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </section>
+      </section>
+    </section>
   );
 }
 
