@@ -1,5 +1,43 @@
 # Completed
 
+## Add MOSFET loss-separation Verilog-A monitor
+
+- Completion date: 2026-05-22
+- Modified files:
+  - `src/lib/verilogAModelLibrary.ts`
+  - `src/lib/verilogAModelLibrary.test.ts`
+  - `src/styles.css`
+  - `README.md`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added a downloadable `mosfet_loss_monitor.va` model library entry for SIMetrix. The monitor measures drain-path `VDS x ID` loss with an inline zero-volt drain-current sensor, measures gate-driver supply power with a separate inline supply sensor, and exposes externally windowed total, conduction, turn-on, turn-off, dead-time, and body-diode power outputs. Documented sensor orientation, window overlap guidance, and 1 V = 1 W output usage in the model page. Added model-library tests for the source pattern and parameter paste block, tightened Verilog-A summary metric sizing for long identifiers, verified the model page in the browser, and passed `npm run lint`, `npm run test`, and `npm run build`.
+
+## Add SIMetrix parameter paste panel
+
+- Completion date: 2026-05-22
+- Modified files:
+  - `src/lib/verilogAModelLibrary.ts`
+  - `src/lib/verilogAModelLibrary.test.ts`
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added a read-only SIMetrix parameter paste panel to each Verilog-A model page. The text is generated from model parameter metadata as one `Param=value` assignment per line, so future models inherit the same copy-ready output. Added a unit test for the dead-time generator assignment block and verified the rendered textarea content in the browser. Validation passed with `npm run lint`, `npm run test`, and `npm run build`.
+
+## Add Verilog-A model library
+
+- Completion date: 2026-05-22
+- Modified files:
+  - `src/lib/verilogAModelLibrary.ts`
+  - `src/lib/verilogAModelLibrary.test.ts`
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `README.md`
+  - `CLAUDE.md`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added a scalable Verilog-A model library feature with sidebar navigation, model selection, port and parameter summaries, source preview/download, and SIMetrix usage steps. Seeded it with the timer-based dead-time generator, kept model metadata in `src/lib` for incremental additions, added unit tests that guard the shipped source pattern, and verified the new page in the browser at desktop and mobile widths. Validation passed with `npm run lint`, `npm run test`, and `npm run build`.
+
 ## Pair compensator values with circuit artwork
 
 - Completion date: 2026-05-22

@@ -284,6 +284,18 @@ h1 {
   grid-template-columns: minmax(360px, 520px) minmax(0, 1fr);
 }
 
+.workspace.verilog-workspace {
+  grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+}
+
+.verilog-workspace .summary-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.verilog-workspace .metric strong {
+  font-size: 1.08rem;
+}
+
 .input-panel,
 .result-panel,
 .reference-panel {
@@ -711,6 +723,123 @@ textarea:focus {
   font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
   font-size: 0.88rem;
   line-height: 1.5;
+}
+
+.parameter-preview {
+  width: 100%;
+  min-height: 190px;
+  resize: vertical;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-soft);
+  color: #111827;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.model-library-options {
+  display: grid;
+  gap: 10px;
+}
+
+.model-option {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  min-height: 112px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 13px;
+  background: var(--surface-soft);
+  color: #263346;
+  text-align: left;
+}
+
+.model-option.active {
+  border-color: rgb(15 118 110 / 0.48);
+  background: #edf9f7;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.model-option:not(.active):hover {
+  border-color: #94a3b8;
+  background: #ffffff;
+}
+
+.model-option span {
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.model-option strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.model-option small {
+  color: #607086;
+  line-height: 1.45;
+}
+
+.verilog-note-list,
+.verilog-use-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+  color: #344256;
+  line-height: 1.5;
+}
+
+.verilog-port-list,
+.verilog-parameter-table {
+  display: grid;
+  gap: 8px;
+}
+
+.verilog-port-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 0.7fr) minmax(64px, 0.55fr) minmax(0, 1.5fr);
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: var(--surface-soft);
+  color: #344256;
+  font-size: 0.88rem;
+}
+
+.verilog-port-row strong,
+.verilog-parameter-row strong {
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+.verilog-port-row span {
+  border-radius: 6px;
+  padding: 5px 7px;
+  background: var(--surface-strong);
+  color: #536172;
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.verilog-port-row small {
+  color: #607086;
+  line-height: 1.4;
+}
+
+.verilog-parameter-row {
+  grid-template-columns: minmax(120px, 0.7fr) minmax(100px, 0.55fr) minmax(0, 1.75fr);
+}
+
+.verilog-source {
+  min-height: 650px;
 }
 
 .zero-pole-list {
@@ -1405,6 +1534,11 @@ textarea:focus {
   .measurement-panel,
   .component-row,
   .formula-row {
+    grid-template-columns: 1fr;
+  }
+
+  .verilog-port-row,
+  .verilog-parameter-row {
     grid-template-columns: 1fr;
   }
 }
