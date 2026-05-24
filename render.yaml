@@ -1,10 +1,9 @@
 services:
   - type: web
     name: ee-tool
-    runtime: static
-    buildCommand: npm ci && npm run build
-    staticPublishPath: ./dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+    runtime: python
+    buildCommand: pip install -r requirements.txt && npm ci && npm run build
+    startCommand: python backend/run_api.py
+    envVars:
+      - key: HOST
+        value: 0.0.0.0

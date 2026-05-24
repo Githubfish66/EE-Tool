@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RLC Symbolic Solver</title>
+    <link rel="stylesheet" href="/static/styles.css?v=workbench-fill-result" />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"], ["$", "$"]] },
+        svg: { fontCache: "global" }
+      };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Symbolic RLC Analysis</p>
+          <h1>Netlist Solver</h1>
+        </div>
+        <div class="toolbar">
+          <label class="upload-button">
+            <input id="fileInput" type="file" accept=".txt,.net,.cir,.spice" />
+            Import netlist
+          </label>
+          <button id="analyzeButton" class="primary-button toolbar-button">Analyze outputs</button>
+          <button id="solveSelectedButton" class="primary-button toolbar-button" type="button">Solve selected</button>
+        </div>
+      </section>
+
+      <p id="status" class="status global-status">Waiting for a netlist.</p>
+
+      <section class="workspace workbench-grid">
+        <aside class="panel input-panel">
+          <div class="panel-heading">
+            <h2>Netlist</h2>
+            <span id="fileName">No file selected</span>
+          </div>
+          <textarea id="netlistText" spellcheck="false" placeholder="Import a netlist or paste one here."></textarea>
+        </aside>
+
+        <section class="panel analysis-panel">
+          <div class="panel-heading">
+            <h2>Available Analysis</h2>
+          </div>
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-filter="all">All</button>
+            <button class="tab" data-filter="voltage">Voltage</button>
+            <button class="tab" data-filter="current">Current</button>
+          </div>
+          <div id="outputsList" class="outputs-list empty-state">
+            Import a netlist to see voltage and current requests.
+          </div>
+        </section>
+
+        <aside class="quick-panel">
+          <div class="summary-row">
+            <div>
+              <span class="metric-label">Components</span>
+              <strong id="componentCount">0</strong>
+            </div>
+            <div>
+              <span class="metric-label">Outputs</span>
+              <strong id="outputCount">0</strong>
+            </div>
+          </div>
+
+          <section class="panel result-panel">
+            <div class="panel-heading">
+              <h2>Quick Result</h2>
+            </div>
+            <div id="resultEmpty" class="empty-state">Choose an output and solve it.</div>
+            <div id="resultContent" class="result-content hidden">
+              <div class="result-title-row">
+                <span id="selectedBadge" class="badge"></span>
+                <h3 id="selectedTitle"></h3>
+              </div>
+
+              <div id="resultCards" class="result-cards"></div>
+            </div>
+          </section>
+        </aside>
+      </section>
+
+      <section class="detail-grid">
+        <section class="panel waveform-section">
+          <div class="waveform-header">
+            <label for="waveformStopInput">Time waveform</label>
+            <div class="waveform-controls">
+              <div class="segmented-control" aria-label="Waveform view mode">
+                <button id="overlayModeButton" class="segment active" type="button">Overlay</button>
+                <button id="separateModeButton" class="segment" type="button">Separate</button>
+              </div>
+              <div class="time-control">
+                <span>Window</span>
+                <input id="waveformStopInput" type="number" min="0" step="0.000001" />
+                <span>s</span>
+              </div>
+              <button id="waveformResetButton" class="secondary-button" type="button">Reset view</button>
+            </div>
+          </div>
+          <div id="waveformPlot" class="waveform-plot empty-state">
+            Solve an output to draw the waveform.
+          </div>
+        </section>
+
+        <section class="side-detail-stack">
+          <section class="panel components-panel">
+            <div class="panel-heading">
+              <h2>Component Values</h2>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Kind</th>
+                    <th>Nodes</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody id="componentsTable">
+                  <tr><td colspan="4">No components loaded.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <details class="panel changelog-panel">
+            <summary class="panel-heading">
+              <h2>Version Updates</h2>
+              <span>what changed</span>
+            </summary>
+            <ol class="changelog-list">
+              <li>
+                <time datetime="2026-05-10">2026-05-10</time>
+                <div>
+                  <strong>Replaced circuit connectivity panel</strong>
+                  <p>The previous circuit drawing area is now a Version Updates panel so users can quickly see what changed.</p>
+                </div>
+              </li>
+              <li>
+                <time datetime="2026-05-10">2026-05-10</time>
+                <div>
+                  <strong>Removed asymptotic sandbox controls</strong>
+                  <p>Expression Sandbox now focuses on direct substitutions such as R1 = R2, R4 = 10k, and V1 = 5.</p>
+                </div>
+              </li>
+              <li>
+                <time datetime="2026-05-10">2026-05-10</time>
+                <div>
+                  <strong>Added expression sandbox</strong>
+                  <p>Solved expressions can be recalculated after the user enters replacement values or symbol relationships.</p>
+                </div>
+              </li>
+              <li>
+                <time datetime="2026-05-10">2026-05-10</time>
+                <div>
+                  <strong>Improved waveform comparison</strong>
+                  <p>Multiple selected outputs can be plotted together or separately, with zoom and point inspection.</p>
+                </div>
+              </li>
+              <li>
+                <time datetime="2026-05-10">2026-05-10</time>
+                <div>
+                  <strong>Added Render deployment notes</strong>
+                  <p>Deployment and troubleshooting documents now describe GitHub, Render, and common online-service issues.</p>
+                </div>
+              </li>
+            </ol>
+          </details>
+        </section>
+      </section>
+    </main>
+    <script src="/static/app.js?v=20260510-2"></script>
+  </body>
+</html>

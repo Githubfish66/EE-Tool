@@ -284,6 +284,28 @@ h1 {
   grid-template-columns: minmax(360px, 520px) minmax(0, 1fr);
 }
 
+.workspace.rlc-workspace {
+  grid-template-columns: minmax(360px, 540px) minmax(0, 1fr);
+}
+
+.rlc-original-frame-shell {
+  min-height: calc(100vh - 168px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f5f7fb;
+  box-shadow: var(--shadow-sm);
+}
+
+.rlc-original-frame {
+  display: block;
+  width: 100%;
+  height: calc(100vh - 168px);
+  min-height: 820px;
+  border: 0;
+  background: #f5f7fb;
+}
+
 .workspace.verilog-workspace {
   grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
 }
