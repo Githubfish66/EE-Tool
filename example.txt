@@ -1,0 +1,25 @@
+* Example RLC Circuit.sxsch
+.options PSP_NPT=100001 POP_ITRMAX=20 POP_OUTPUT_CYCLES=5 SNAPSHOT_INTVL=0 SNAPSHOT_NPT=11
++ MIN_AVG_TOPOLOGY_DUR=1a AVG_TOPOLOGY_DUR_MEASUREMENT_WINDOW=128
+.tran 10u 0
+V$IPROBE1 6 0 0.0
+.PRINT I(V$IPROBE1)
+.GRAPH IPROBE1#P axisType="grid" persistence=-1 curveLabel="I3" analysis="tran|pop"
++ xLog="auto" yLog="lin"  nowarn=true disabled=false 
+V$IPROBE8 4 0 0.0
+.PRINT I(V$IPROBE8)
+.GRAPH IPROBE8#P axisType="grid" persistence=-1 curveLabel="I1" analysis="tran|pop"
++ xLog="auto" yLog="lin"  nowarn=true disabled=false 
+V$IPROBE9 5 0 0.0
+.PRINT I(V$IPROBE9)
+.GRAPH IPROBE9#P axisType="grid" persistence=-1 curveLabel="I2" analysis="tran|pop"
++ xLog="auto" yLog="lin"  nowarn=true disabled=false 
+L1 2 6 1u
+.PRINT V(2)
+.GRAPH :2 curveLabel= Probe1-NODE nowarn=true ylog=auto xlog=auto analysis=tran|pop
++ disabled=false PROBEREF=Probe1  
+R3 2 3 5
+R4 2 4 2
+R5 2 5 8
+V2 3 0 5
+.end

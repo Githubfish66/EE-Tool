@@ -68,7 +68,7 @@ import {
 type NumericState = Record<string, number>;
 type UnitState = Record<string, string>;
 type Locale = "zh" | "en";
-type FeatureId = "bootstrap" | "compensator" | "simetrix" | "verilog-a";
+type FeatureId = "bootstrap" | "compensator" | "simetrix" | "rlc-solver" | "verilog-a";
 
 type UnitOption = {
   label: string;
@@ -98,6 +98,7 @@ const featureIcons: Record<FeatureId | "gate" | "rc" | "loss", LucideIcon> = {
   bootstrap: Calculator,
   compensator: Gauge,
   simetrix: FileCode2,
+  "rlc-solver": CircuitBoard,
   "verilog-a": FileText,
   gate: SlidersHorizontal,
   rc: CircuitBoard,
@@ -175,6 +176,10 @@ const translations = {
     simetrixTitle: "開關 Model Sweep 腳本產生器",
     simetrixSubtitle:
       "匯入 SIMetrix netlist，自動偵測 Q/M/S/X 開關候選元件，輸入待比較 model 後產生損耗分析用 .sxscr 腳本。",
+    rlcSolverEyebrow: "RLC 網路分析",
+    rlcSolverTitle: "RLC 符號求解器",
+    rlcSolverSubtitle:
+      "貼上 SIMPLIS/SPICE 類 RLC netlist，使用 MNA 在前端求解 .PRINT 電壓/電流輸出，快速取得 s-domain 符號式與元件數值代入結果。",
     verilogAEyebrow: "行為模型庫",
     verilogATitle: "Verilog-A 功能模型",
     verilogASubtitle:
@@ -235,6 +240,7 @@ const translations = {
       bootstrap: "Bootstrap 電容",
       compensator: "補償器計算",
       simetrix: "SIMetrix 腳本",
+      "rlc-solver": "RLC 符號求解",
       "verilog-a": "Verilog-A 模型",
       gate: "閘極電阻",
       rc: "RC 濾波",
@@ -254,6 +260,10 @@ const translations = {
     simetrixTitle: "Switch Model Sweep Script Generator",
     simetrixSubtitle:
       "Import a SIMetrix netlist, detect likely Q/M/S/X switching instances, enter model names, and generate a loss-analysis .sxscr sweep script.",
+    rlcSolverEyebrow: "RLC network analysis",
+    rlcSolverTitle: "RLC Symbolic Solver",
+    rlcSolverSubtitle:
+      "Paste a SIMPLIS/SPICE-like RLC netlist and solve .PRINT voltage/current outputs in the browser with MNA, including s-domain expressions and numeric substitution.",
     verilogAEyebrow: "Behavioral model library",
     verilogATitle: "Verilog-A Function Models",
     verilogASubtitle:
@@ -314,6 +324,7 @@ const translations = {
       bootstrap: "Bootstrap capacitor",
       compensator: "Compensator calculator",
       simetrix: "SIMetrix script",
+      "rlc-solver": "RLC symbolic solver",
       "verilog-a": "Verilog-A models",
       gate: "Gate resistor",
       rc: "RC filter",
@@ -606,6 +617,13 @@ function getFeatureHeader(feature: FeatureId, locale: Locale) {
       subtitle: t.verilogASubtitle,
     };
   }
+  if (feature === "rlc-solver") {
+    return {
+      eyebrow: t.rlcSolverEyebrow,
+      title: t.rlcSolverTitle,
+      subtitle: t.rlcSolverSubtitle,
+    };
+  }
   return {
     eyebrow: t.simetrixEyebrow,
     title: t.simetrixTitle,
@@ -645,6 +663,7 @@ export function App() {
   const BootstrapIcon = featureIcons.bootstrap;
   const CompensatorIcon = featureIcons.compensator;
   const SimetrixIcon = featureIcons.simetrix;
+  const RlcSolverIcon = featureIcons["rlc-solver"];
   const VerilogAIcon = featureIcons["verilog-a"];
   const GateIcon = featureIcons.gate;
   const RcIcon = featureIcons.rc;
@@ -861,6 +880,14 @@ export function App() {
             {t.features.simetrix}
           </button>
           <button
+            className={feature === "rlc-solver" ? "active" : ""}
+            type="button"
+            onClick={() => setFeature("rlc-solver")}
+          >
+            <RlcSolverIcon aria-hidden="true" size={18} />
+            {t.features["rlc-solver"]}
+          </button>
+          <button
             className={feature === "verilog-a" ? "active" : ""}
             type="button"
             onClick={() => setFeature("verilog-a")}
@@ -961,6 +988,8 @@ export function App() {
             onCreateNetlistBeforeRunChange={setCreateSimetrixNetlist}
             onReset={resetSimetrix}
           />
+        ) : feature === "rlc-solver" ? (
+          <RlcSolverWorkspace />
         ) : (
           <VerilogAWorkspace
             activeModel={getVerilogAModel(verilogAModelId)}
@@ -969,6 +998,18 @@ export function App() {
         )}
       </main>
     </div>
+  );
+}
+
+function RlcSolverWorkspace() {
+  return (
+    <section className="rlc-original-frame-shell" aria-label="Original RLC Symbolic Solver">
+      <iframe
+        className="rlc-original-frame"
+        title="Original RLC Symbolic Solver"
+        src="/rlc-original?v=workbench-fill-result"
+      />
+    </section>
   );
 }
 
@@ -1148,7 +1189,6 @@ function SimetrixWorkspace({
     netlistFileName,
     createNetlistBeforeRun,
   });
-
   function downloadScript() {
     if (!scriptResult.script) {
       return;
@@ -1223,6 +1263,7 @@ function SimetrixWorkspace({
           />
           <span>每次模擬前加入 Netlist 指令</span>
         </label>
+
       </form>
 
       <section className="result-panel">
@@ -1282,6 +1323,7 @@ function SimetrixWorkspace({
             aria-label="Generated SIMetrix script"
           />
         </section>
+
       </section>
     </section>
   );

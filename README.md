@@ -20,12 +20,18 @@ half-bridge gate-driver circuits.
   marks the previous result as stale.
 - Recommended MLCC specification plus Digi-Key and Mouser search links.
 - SIMetrix model sweep script generator for selected switching instances.
+- RLC symbolic solver for SIMPLIS/SPICE-like R/L/C/V netlists with `.PRINT`
+  voltage/current outputs, SymPy MNA s-domain expressions, numeric
+  substitution, inverse-Laplace time-domain expressions, and waveform previews.
+  The EE Tool RLC page serves the original `rlc-symbolic-solver` web app from
+  `/rlc-original`, with a Workbench layout that keeps netlist input, output
+  selection, and quick results visible together.
 - Verilog-A model library with reusable `.va` source preview/download for a
-  timer-based dead-time generator and an externally windowed MOSFET loss monitor
-  that separates drain-path, gate-driver supply, conduction, turn-on, turn-off,
-  dead-time, and body-diode power waveforms.
+  timer-based dead-time generator plus a VDS edge timing marker for confirming
+  when VDS leaves its stable high or low plateau soon after the matching gate
+  command at the start of turn-on and turn-off.
 
-Live distributor stock and pricing require API keys, so this static frontend
+Live distributor stock and pricing require API keys, so this frontend
 generates distributor search links instead of calling Digi-Key or Mouser APIs
 directly.
 
@@ -33,13 +39,20 @@ directly.
 
 ```bash
 npm install
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe backend\run_api.py
 npm run dev
 ```
+
+The Vite dev server proxies `/api/*` to the FastAPI backend at
+`http://127.0.0.1:8000`.
 
 ## Validate
 
 ```bash
 npm run test
+.\.venv\Scripts\python.exe -m pytest -q backend\tests
 npm run build
 ```
 
@@ -56,19 +69,19 @@ git remote add origin <your-github-repo-url>
 git push -u origin main
 ```
 
-Create a Render Static Site from that GitHub repository:
+Create a Render Web Service from that GitHub repository:
 
-- Render Dashboard: **New** -> **Static Site**
+- Render Dashboard: **New** -> **Web Service**
 - Repository: `Githubfish66/EE-Tool`
 - Branch: `main`
-- Build command: `npm ci && npm run build`
-- Publish directory: `dist`
+- Build command: `pip install -r requirements.txt && npm ci && npm run build`
+- Start command: `python backend/run_api.py`
+- Environment variable: `HOST=0.0.0.0`
 
 This repository also includes `render.yaml`, so you can create the site as a
-Render Blueprint instead. The Blueprint config deploys a static site named
-`ee-tool` using `type: web` with `runtime: static`, builds with
-`npm ci && npm run build`, publishes `./dist`, and rewrites all paths to
-`index.html` for client-side routing compatibility.
+Render Blueprint instead. The Blueprint config deploys a Python web service
+named `ee-tool`, builds the React frontend into `dist`, serves the built app
+from FastAPI, and exposes the RLC solver API under `/api/*`.
 
 ## Notes
 
