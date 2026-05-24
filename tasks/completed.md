@@ -1,5 +1,60 @@
 # Completed
 
+## 加入 Google Drive 分享服務上傳密碼
+
+- Completion date: 2026-05-24
+- Modified files:
+  - `r2-file-share/.env.example`
+  - `r2-file-share/src/config.js`
+  - `r2-file-share/src/server.js`
+  - `r2-file-share/public/index.html`
+  - `r2-file-share/public/app.js`
+  - `r2-file-share/README.md`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added required `UPLOAD_PASSWORD` protection before issuing Google Drive upload authorization. The frontend now asks for an upload password and sends it only to `/api/uploads/session`; invalid or missing passwords receive `401 Invalid upload password`. Updated README and `.env.example`. Validation passed with `npm run lint`, `npm test`, and `npm audit --omit=dev` inside `r2-file-share`.
+
+## 將大檔案分享服務改為 Google Drive 版
+
+- Completion date: 2026-05-24
+- Modified files:
+  - `r2-file-share/package.json`
+  - `r2-file-share/package-lock.json`
+  - `r2-file-share/.env.example`
+  - `r2-file-share/render.yaml`
+  - `r2-file-share/src/config.js`
+  - `r2-file-share/src/server.js`
+  - `r2-file-share/src/validation.js`
+  - `r2-file-share/public/index.html`
+  - `r2-file-share/public/app.js`
+  - `r2-file-share/test/validation.test.js`
+  - `r2-file-share/README.md`
+  - `r2-file-share/docs/decisions/ADR-001-presigned-r2-direct-upload.md`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Replaced the Cloudflare R2 presigned URL backend with Google Drive OAuth and resumable direct upload. Added `/auth/google`, `/oauth2callback`, `/api/uploads/session`, `/api/files/share`, and `/api/files/:file_id`; the browser now creates the Google Drive resumable session itself for CORS compatibility, uploads directly to Google Drive, and then requests an `anyone` + `reader` sharing link. Updated local and Render environment variable documentation. Validation passed with `npm run lint`, `npm test`, `npm audit --omit=dev`, and `node -e "import('./src/server.js').then(() => console.log('server module import ok'))"` inside `r2-file-share`.
+
+## 建立 R2 大檔案臨時分享服務
+
+- Completion date: 2026-05-24
+- Modified files:
+  - `r2-file-share/package.json`
+  - `r2-file-share/package-lock.json`
+  - `r2-file-share/.env.example`
+  - `r2-file-share/render.yaml`
+  - `r2-file-share/src/config.js`
+  - `r2-file-share/src/server.js`
+  - `r2-file-share/src/validation.js`
+  - `r2-file-share/public/index.html`
+  - `r2-file-share/public/styles.css`
+  - `r2-file-share/public/app.js`
+  - `r2-file-share/test/validation.test.js`
+  - `r2-file-share/README.md`
+  - `r2-file-share/docs/decisions/ADR-001-presigned-r2-direct-upload.md`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added an isolated Node.js + Express service that uses Cloudflare R2 S3-compatible presigned URLs for direct browser uploads and short-lived downloads. The frontend provides a Tailwind-based drag-and-drop upload UI, XMLHttpRequest percentage progress, generated share URLs, and one-click copy. Documented Render environment variables and R2 CORS. Validation passed with `npm run lint`, `npm test`, and `node -e "import('./src/server.js').then(() => console.log('server module import ok'))"` inside `r2-file-share`.
+
 ## 更新 GitHub 與 Render 部署
 
 - Completion date: 2026-05-24

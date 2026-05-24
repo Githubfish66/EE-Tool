@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-Hant">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>R2 File Share</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<link rel="stylesheet" href="/styles.css">
+	</head>
+	<body>
+		<main class="min-h-screen bg-zinc-950 text-zinc-100">
+			<section class="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center px-5 py-8">
+				<div class="grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+					<div class="space-y-5">
+						<p class="text-sm font-semibold uppercase tracking-[0.28em] text-cyan-300">Google Drive Direct Upload</p>
+						<h1 class="max-w-xl text-4xl font-semibold leading-tight text-white sm:text-5xl">
+							大檔案臨時分享
+						</h1>
+						<p class="max-w-lg text-base leading-7 text-zinc-300">
+							檔案直接從瀏覽器上傳到 Google Drive，伺服器只負責 OAuth 與建立 resumable upload session，適合部署在 Render 免費版。
+						</p>
+						<div class="grid max-w-lg grid-cols-3 gap-3 text-sm text-zinc-300">
+							<div class="rounded-lg border border-white/10 bg-white/5 p-3">
+								<span class="block text-lg font-semibold text-white">直傳</span>
+								<span>不吃 Render 磁碟</span>
+							</div>
+							<div class="rounded-lg border border-white/10 bg-white/5 p-3">
+								<span class="block text-lg font-semibold text-white">短效</span>
+								<span>Drive session</span>
+							</div>
+							<div class="rounded-lg border border-white/10 bg-white/5 p-3">
+								<span class="block text-lg font-semibold text-white">進度</span>
+								<span>即時百分比</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="rounded-lg border border-white/10 bg-zinc-900/80 p-5 shadow-2xl shadow-cyan-950/30">
+						<div id="auth_panel" class="mb-5 hidden rounded-lg border border-amber-300/30 bg-amber-300/10 p-4">
+							<p class="text-sm font-semibold text-amber-100">需要 Google Drive 授權</p>
+							<p class="mt-1 text-sm text-zinc-300">第一次使用前，請先用你的 Google 帳號授權，讓服務可以把檔案上傳到你的 Drive。</p>
+							<a id="auth_link" class="mt-4 inline-flex rounded-md bg-amber-200 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-amber-100" href="/auth/google">
+								前往授權
+							</a>
+						</div>
+
+						<div id="upload_zone" class="upload-zone rounded-lg border-2 border-dashed border-zinc-700 bg-zinc-950/60 p-8 text-center transition">
+							<input id="file_input" class="sr-only" type="file">
+							<div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-200">
+								<svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M12 16V4"></path>
+									<path d="m7 9 5-5 5 5"></path>
+									<path d="M20 16.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2.5"></path>
+								</svg>
+							</div>
+							<h2 class="mt-5 text-xl font-semibold text-white">拖放檔案到這裡</h2>
+							<p class="mt-2 text-sm text-zinc-400">或選擇本機檔案後直接上傳到 Google Drive</p>
+							<button id="choose_button" class="mt-5 rounded-md bg-cyan-300 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:ring-offset-2 focus:ring-offset-zinc-900">
+								選擇檔案
+							</button>
+						</div>
+
+						<div id="file_panel" class="mt-5 hidden rounded-lg border border-white/10 bg-white/[0.03] p-4">
+							<label class="mb-4 block">
+								<span class="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">上傳密碼</span>
+								<input id="upload_password" class="mt-2 w-full rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition focus:border-cyan-300" type="password" autocomplete="current-password" placeholder="輸入上傳密碼">
+							</label>
+							<div class="flex items-start justify-between gap-4">
+								<div class="min-w-0">
+									<p id="file_name" class="truncate text-sm font-semibold text-white"></p>
+									<p id="file_size" class="mt-1 text-xs text-zinc-400"></p>
+								</div>
+								<button id="upload_button" class="shrink-0 rounded-md bg-emerald-300 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-200">
+									開始上傳
+								</button>
+							</div>
+							<div class="mt-4 h-3 overflow-hidden rounded-full bg-zinc-800">
+								<div id="progress_bar" class="h-full w-0 rounded-full bg-cyan-300 transition-all"></div>
+							</div>
+							<p id="progress_label" class="mt-2 text-sm text-zinc-300">等待上傳</p>
+						</div>
+
+						<div id="share_panel" class="mt-5 hidden rounded-lg border border-emerald-300/30 bg-emerald-300/10 p-4">
+							<p class="text-sm font-semibold text-emerald-100">上傳完成</p>
+							<div class="mt-3 flex gap-2">
+								<input id="share_url" class="min-w-0 flex-1 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none" readonly>
+								<button id="copy_button" class="rounded-md bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-zinc-200">
+									複製
+								</button>
+							</div>
+						</div>
+
+						<div id="download_panel" class="mt-5 hidden rounded-lg border border-cyan-300/30 bg-cyan-300/10 p-4">
+							<p class="text-sm font-semibold text-cyan-100">收到分享檔案</p>
+							<p id="download_file_name" class="mt-1 break-all text-sm text-zinc-300"></p>
+							<a id="download_button" class="mt-4 inline-flex rounded-md bg-cyan-300 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-cyan-200" href="#" target="_blank" rel="noreferrer">
+								開啟 Google Drive
+							</a>
+						</div>
+
+						<p id="status_message" class="mt-4 min-h-6 text-sm text-zinc-300" role="status"></p>
+					</div>
+				</div>
+			</section>
+		</main>
+		<script src="/app.js" type="module"></script>
+	</body>
+</html>
