@@ -67,7 +67,7 @@ GOOGLE_REFRESH_TOKEN=
 
 UPLOAD_PASSWORD=change-this-upload-password
 
-MAX_FILE_SIZE_BYTES=1073741824
+MAX_FILE_SIZE_BYTES=5368709120
 UPLOAD_SESSION_EXPIRES_SECONDS=900
 ```
 
@@ -93,7 +93,7 @@ Set these in Render Dashboard -> Web Service -> Environment:
 | `GOOGLE_REDIRECT_URI` | Yes | `https://your-service.onrender.com/oauth2callback` |
 | `GOOGLE_REFRESH_TOKEN` | Yes | Token produced after visiting `/auth/google` |
 | `UPLOAD_PASSWORD` | Yes | Private password required before uploads |
-| `MAX_FILE_SIZE_BYTES` | No | Default `1073741824` (1 GiB) |
+| `MAX_FILE_SIZE_BYTES` | No | Default `5368709120` (5 GiB) |
 | `UPLOAD_SESSION_EXPIRES_SECONDS` | No | Default `900` |
 
 Render settings:
