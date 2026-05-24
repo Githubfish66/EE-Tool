@@ -6,6 +6,7 @@ import PlotlyBasic from "plotly.js-basic-dist-min";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import {
+  BookOpenText,
   Calculator,
   CircuitBoard,
   Download,
@@ -53,6 +54,7 @@ import {
   getVerilogAModel,
   verilogAModels,
 } from "./lib/verilogAModelLibrary";
+import simetrixSpeedGuideMarkdown from "../docs/simetrix/SIMetrix_simulation_speed_guide.md?raw";
 import sampleBodeCsv from "../參考資料/bode plot example1.csv?raw";
 import type1Circuit from "../參考資料/Type I polished.png";
 import type2Circuit from "../參考資料/Type II polished.png";
@@ -68,7 +70,13 @@ import {
 type NumericState = Record<string, number>;
 type UnitState = Record<string, string>;
 type Locale = "zh" | "en";
-type FeatureId = "bootstrap" | "compensator" | "simetrix" | "rlc-solver" | "verilog-a";
+type FeatureId =
+  | "bootstrap"
+  | "compensator"
+  | "simetrix"
+  | "simetrix-guide"
+  | "rlc-solver"
+  | "verilog-a";
 
 type UnitOption = {
   label: string;
@@ -98,6 +106,7 @@ const featureIcons: Record<FeatureId | "gate" | "rc" | "loss", LucideIcon> = {
   bootstrap: Calculator,
   compensator: Gauge,
   simetrix: FileCode2,
+  "simetrix-guide": BookOpenText,
   "rlc-solver": CircuitBoard,
   "verilog-a": FileText,
   gate: SlidersHorizontal,
@@ -176,6 +185,10 @@ const translations = {
     simetrixTitle: "開關 Model Sweep 腳本產生器",
     simetrixSubtitle:
       "匯入 SIMetrix netlist，自動偵測 Q/M/S/X 開關候選元件，輸入待比較 model 後產生損耗分析用 .sxscr 腳本。",
+    simetrixGuideEyebrow: "SIMetrix 操作手冊",
+    simetrixGuideTitle: "Transient 模擬速度優化",
+    simetrixGuideSubtitle:
+      "整理 transient 模擬過慢、timestep 掉到極小、switching edge 附近不收斂與高頻 ringing 卡住時的排查順序。",
     rlcSolverEyebrow: "RLC 網路分析",
     rlcSolverTitle: "RLC 符號求解器",
     rlcSolverSubtitle:
@@ -240,6 +253,7 @@ const translations = {
       bootstrap: "Bootstrap 電容",
       compensator: "補償器計算",
       simetrix: "SIMetrix 腳本",
+      "simetrix-guide": "SIMetrix 指南",
       "rlc-solver": "RLC 符號求解",
       "verilog-a": "Verilog-A 模型",
       gate: "閘極電阻",
@@ -260,6 +274,10 @@ const translations = {
     simetrixTitle: "Switch Model Sweep Script Generator",
     simetrixSubtitle:
       "Import a SIMetrix netlist, detect likely Q/M/S/X switching instances, enter model names, and generate a loss-analysis .sxscr sweep script.",
+    simetrixGuideEyebrow: "SIMetrix guide",
+    simetrixGuideTitle: "Transient Simulation Speed Guide",
+    simetrixGuideSubtitle:
+      "A troubleshooting guide for slow transient runs, tiny timesteps, switching-edge convergence issues, and high-frequency ringing.",
     rlcSolverEyebrow: "RLC network analysis",
     rlcSolverTitle: "RLC Symbolic Solver",
     rlcSolverSubtitle:
@@ -324,6 +342,7 @@ const translations = {
       bootstrap: "Bootstrap capacitor",
       compensator: "Compensator calculator",
       simetrix: "SIMetrix script",
+      "simetrix-guide": "SIMetrix guide",
       "rlc-solver": "RLC symbolic solver",
       "verilog-a": "Verilog-A models",
       gate: "Gate resistor",
@@ -624,6 +643,13 @@ function getFeatureHeader(feature: FeatureId, locale: Locale) {
       subtitle: t.rlcSolverSubtitle,
     };
   }
+  if (feature === "simetrix-guide") {
+    return {
+      eyebrow: t.simetrixGuideEyebrow,
+      title: t.simetrixGuideTitle,
+      subtitle: t.simetrixGuideSubtitle,
+    };
+  }
   return {
     eyebrow: t.simetrixEyebrow,
     title: t.simetrixTitle,
@@ -663,6 +689,7 @@ export function App() {
   const BootstrapIcon = featureIcons.bootstrap;
   const CompensatorIcon = featureIcons.compensator;
   const SimetrixIcon = featureIcons.simetrix;
+  const SimetrixGuideIcon = featureIcons["simetrix-guide"];
   const RlcSolverIcon = featureIcons["rlc-solver"];
   const VerilogAIcon = featureIcons["verilog-a"];
   const GateIcon = featureIcons.gate;
@@ -880,6 +907,14 @@ export function App() {
             {t.features.simetrix}
           </button>
           <button
+            className={feature === "simetrix-guide" ? "active" : ""}
+            type="button"
+            onClick={() => setFeature("simetrix-guide")}
+          >
+            <SimetrixGuideIcon aria-hidden="true" size={18} />
+            {t.features["simetrix-guide"]}
+          </button>
+          <button
             className={feature === "rlc-solver" ? "active" : ""}
             type="button"
             onClick={() => setFeature("rlc-solver")}
@@ -990,6 +1025,8 @@ export function App() {
           />
         ) : feature === "rlc-solver" ? (
           <RlcSolverWorkspace />
+        ) : feature === "simetrix-guide" ? (
+          <SimetrixGuideWorkspace markdown={simetrixSpeedGuideMarkdown} />
         ) : (
           <VerilogAWorkspace
             activeModel={getVerilogAModel(verilogAModelId)}
@@ -1010,6 +1047,142 @@ function RlcSolverWorkspace() {
         src="/rlc-original?v=workbench-fill-result"
       />
     </section>
+  );
+}
+
+function SimetrixGuideWorkspace({ markdown }: { markdown: string }) {
+  return (
+    <section className="simetrix-guide-workspace" aria-label="SIMetrix transient simulation speed guide">
+      <article className="simetrix-guide-document">{renderGuideMarkdown(markdown)}</article>
+    </section>
+  );
+}
+
+function renderGuideMarkdown(markdown: string): ReactNode[] {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const nodes: ReactNode[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index].trim();
+
+    if (!line) {
+      index += 1;
+      continue;
+    }
+
+    if (line.startsWith("|") && lines[index + 1]?.trim().startsWith("|")) {
+      const tableLines: string[] = [];
+      while (index < lines.length && lines[index].trim().startsWith("|")) {
+        tableLines.push(lines[index].trim());
+        index += 1;
+      }
+      nodes.push(renderGuideTable(tableLines, nodes.length));
+      continue;
+    }
+
+    if (line.startsWith("### ")) {
+      nodes.push(<h3 key={`guide-${nodes.length}`}>{line.slice(4)}</h3>);
+      index += 1;
+      continue;
+    }
+
+    if (line.startsWith("## ")) {
+      nodes.push(<h2 key={`guide-${nodes.length}`}>{line.slice(3)}</h2>);
+      index += 1;
+      continue;
+    }
+
+    if (line.startsWith("# ")) {
+      nodes.push(<h1 key={`guide-${nodes.length}`}>{line.slice(2)}</h1>);
+      index += 1;
+      continue;
+    }
+
+    if (/^\d+\.\s/.test(line)) {
+      const items: string[] = [];
+      while (index < lines.length && /^\d+\.\s/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^\d+\.\s/, ""));
+        index += 1;
+      }
+      nodes.push(
+        <ol key={`guide-${nodes.length}`}>
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ol>,
+      );
+      continue;
+    }
+
+    if (line.startsWith("- ")) {
+      const items: string[] = [];
+      while (index < lines.length && lines[index].trim().startsWith("- ")) {
+        items.push(lines[index].trim().slice(2));
+        index += 1;
+      }
+      nodes.push(
+        <ul key={`guide-${nodes.length}`}>
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>,
+      );
+      continue;
+    }
+
+    const paragraphLines = [line];
+    index += 1;
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !lines[index].trim().startsWith("#") &&
+      !lines[index].trim().startsWith("|") &&
+      !lines[index].trim().startsWith("- ") &&
+      !/^\d+\.\s/.test(lines[index].trim())
+    ) {
+      paragraphLines.push(lines[index].trim());
+      index += 1;
+    }
+    nodes.push(<p key={`guide-${nodes.length}`}>{paragraphLines.join(" ")}</p>);
+  }
+
+  return nodes;
+}
+
+function renderGuideTable(tableLines: string[], keyIndex: number) {
+  const rows = tableLines
+    .filter((line) => !/^\|\s*-+/.test(line))
+    .map((line) =>
+      line
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((cell) => cell.trim()),
+    );
+  const [header, ...body] = rows;
+
+  return (
+    <div className="guide-table-scroll" key={`guide-table-${keyIndex}`}>
+      <table className="guide-table">
+        <thead>
+          <tr>
+            {header.map((cell) => (
+              <th key={cell}>{cell}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {body.map((row, rowIndex) => (
+            <tr key={`${row.join("-")}-${rowIndex}`}>
+              {row.map((cell, cellIndex) => (
+                <td key={`${cell}-${cellIndex}`}>{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

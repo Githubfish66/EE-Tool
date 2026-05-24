@@ -1,4 +1,6 @@
-export type VerilogAModelId = "deadtime-generator" | "mosfet-loss-monitor";
+export type VerilogAModelId =
+  | "deadtime-generator"
+  | "vds-edge-marker";
 
 export type VerilogAModelParameter = {
   name: string;
@@ -119,74 +121,169 @@ module deadtime_gen(in, out_h, out_l);
 endmodule
 `;
 
-const mosfetLossMonitorSource = `\`include "disciplines.vams"
+const vdsEdgeMarkerSource = `\`include "disciplines.vams"
 
-module mosfet_loss_monitor(
+module vds_edge_marker(
     d, g, s,
-    id_sense_p, id_sense_n,
-    vdrv_p, vdrv_n, drv_sense_p, drv_sense_n,
-    win_cond, win_on, win_off, win_dead, win_body,
-    p_total, p_conduction, p_turn_on, p_turn_off,
-    p_gate_drive, p_dead_time, p_body_diode
+    mark_turn_on, mark_turn_off,
+    mark_turn_on_end, mark_turn_off_end,
+    win_turn_on, win_turn_off,
+    t_turn_on, t_turn_off
 );
 
     input d, g, s;
-    inout id_sense_p, id_sense_n;
-    input vdrv_p, vdrv_n;
-    inout drv_sense_p, drv_sense_n;
-    input win_cond, win_on, win_off, win_dead, win_body;
-    output p_total, p_conduction, p_turn_on, p_turn_off;
-    output p_gate_drive, p_dead_time, p_body_diode;
+    output mark_turn_on, mark_turn_off;
+    output mark_turn_on_end, mark_turn_off_end;
+    output win_turn_on, win_turn_off;
+    output t_turn_on, t_turn_off;
 
     electrical d, g, s;
-    electrical id_sense_p, id_sense_n;
-    electrical vdrv_p, vdrv_n, drv_sense_p, drv_sense_n;
-    electrical win_cond, win_on, win_off, win_dead, win_body;
-    electrical p_total, p_conduction, p_turn_on, p_turn_off;
-    electrical p_gate_drive, p_dead_time, p_body_diode;
+    electrical mark_turn_on, mark_turn_off;
+    electrical mark_turn_on_end, mark_turn_off_end;
+    electrical win_turn_on, win_turn_off;
+    electrical t_turn_on, t_turn_off;
 
-    branch (id_sense_p, id_sense_n) drain_sensor;
-    branch (drv_sense_p, drv_sense_n) driver_sensor;
+    parameter real VDS_HIGH_STABLE = 50.0;
+    parameter real VDS_LOW_STABLE = 0.0;
+    parameter real VDS_DEPART_DELTA = 2.0;
+    parameter real VDS_END_DELTA = 2.0;
+    parameter real VGS_ON_ARM = 4.0;
+    parameter real VGS_OFF_ARM = 1.0;
+    parameter real ARM_TIMEOUT = 200n;
+    parameter real MARK_WIDTH = 20n;
+    parameter real TIME_SCALE = 1n;
+    parameter real VHIGH = 1.0;
+    parameter real VLOW = 0.0;
+    parameter real TR = 100p;
+    parameter real TF = 100p;
 
-    parameter real VWIN = 0.5;
-    parameter real ID_SIGN = 1.0;
-    parameter real IDRV_SIGN = 1.0;
-    parameter integer CLAMP_NEGATIVE = 1;
+    real turn_on_until;
+    real turn_off_until;
+    real turn_on_end_until;
+    real turn_off_end_until;
+    real turn_on_arm_until;
+    real turn_off_arm_until;
+    real turn_on_start_time;
+    real turn_off_start_time;
+    real measured_turn_on_time;
+    real measured_turn_off_time;
+    integer turn_on_armed;
+    integer turn_off_armed;
+    integer turn_on_active;
+    integer turn_off_active;
+    integer turn_on_mark;
+    integer turn_off_mark;
+    integer turn_on_end_mark;
+    integer turn_off_end_mark;
 
-    real idrain;
-    real idrv;
-    real p_drain_raw;
-    real p_drain_loss;
-    real p_driver_raw;
-    real p_driver_loss;
     analog begin
-        // Insert each zero-volt sensor branch in series with the path being measured.
-        V(drain_sensor) <+ 0.0;
-        V(driver_sensor) <+ 0.0;
+        @(initial_step) begin
+            turn_on_until = -1.0;
+            turn_off_until = -1.0;
+            turn_on_end_until = -1.0;
+            turn_off_end_until = -1.0;
+            turn_on_arm_until = -1.0;
+            turn_off_arm_until = -1.0;
+            turn_on_start_time = 0.0;
+            turn_off_start_time = 0.0;
+            measured_turn_on_time = 0.0;
+            measured_turn_off_time = 0.0;
+            turn_on_armed = 0;
+            turn_off_armed = 0;
+            turn_on_active = 0;
+            turn_off_active = 0;
+            turn_on_mark = 0;
+            turn_off_mark = 0;
+            turn_on_end_mark = 0;
+            turn_off_end_mark = 0;
+        end
 
-        idrain = ID_SIGN * I(drain_sensor);
-        idrv = IDRV_SIGN * I(driver_sensor);
+        @(cross(V(g, s) - VGS_ON_ARM, +1)) begin
+            turn_on_armed = 1;
+            turn_off_armed = 0;
+            turn_on_arm_until = $abstime + ARM_TIMEOUT;
+        end
 
-        p_drain_raw = V(d, s) * idrain;
-        p_driver_raw = V(vdrv_p, vdrv_n) * idrv;
+        @(cross(V(g, s) - VGS_OFF_ARM, -1)) begin
+            turn_off_armed = 1;
+            turn_on_armed = 0;
+            turn_off_arm_until = $abstime + ARM_TIMEOUT;
+        end
 
-        if ((CLAMP_NEGATIVE != 0) && (p_drain_raw < 0.0))
-            p_drain_loss = 0.0;
-        else
-            p_drain_loss = p_drain_raw;
+        @(timer(turn_on_arm_until, 0, 0, turn_on_armed)) begin
+            turn_on_armed = 0;
+        end
 
-        if ((CLAMP_NEGATIVE != 0) && (p_driver_raw < 0.0))
-            p_driver_loss = 0.0;
-        else
-            p_driver_loss = p_driver_raw;
+        @(timer(turn_off_arm_until, 0, 0, turn_off_armed)) begin
+            turn_off_armed = 0;
+        end
 
-        V(p_total) <+ p_drain_loss;
-        V(p_conduction) <+ ((V(win_cond) > VWIN) ? p_drain_loss : 0.0);
-        V(p_turn_on) <+ ((V(win_on) > VWIN) ? p_drain_loss : 0.0);
-        V(p_turn_off) <+ ((V(win_off) > VWIN) ? p_drain_loss : 0.0);
-        V(p_dead_time) <+ ((V(win_dead) > VWIN) ? p_drain_loss : 0.0);
-        V(p_body_diode) <+ ((V(win_body) > VWIN) ? p_drain_loss : 0.0);
-        V(p_gate_drive) <+ p_driver_loss;
+        @(cross(V(d, s) - (VDS_HIGH_STABLE - VDS_DEPART_DELTA), -1)) begin
+            if (turn_on_armed && (V(g, s) > VGS_ON_ARM)) begin
+                turn_on_until = $abstime + MARK_WIDTH;
+                turn_on_start_time = $abstime;
+                turn_on_mark = 1;
+                turn_off_mark = 0;
+                turn_on_active = 1;
+                turn_off_active = 0;
+                turn_on_armed = 0;
+            end
+        end
+
+        @(cross(V(d, s) - (VDS_LOW_STABLE + VDS_DEPART_DELTA), +1)) begin
+            if (turn_off_armed && (V(g, s) < VGS_OFF_ARM)) begin
+                turn_off_until = $abstime + MARK_WIDTH;
+                turn_off_start_time = $abstime;
+                turn_off_mark = 1;
+                turn_on_mark = 0;
+                turn_off_active = 1;
+                turn_on_active = 0;
+                turn_off_armed = 0;
+            end
+        end
+
+        @(cross(V(d, s) - (VDS_LOW_STABLE + VDS_END_DELTA), -1)) begin
+            if (turn_on_active) begin
+                turn_on_end_until = $abstime + MARK_WIDTH;
+                turn_on_end_mark = 1;
+                turn_on_active = 0;
+                measured_turn_on_time = ($abstime - turn_on_start_time) / TIME_SCALE;
+            end
+        end
+
+        @(cross(V(d, s) - (VDS_HIGH_STABLE - VDS_END_DELTA), +1)) begin
+            if (turn_off_active) begin
+                turn_off_end_until = $abstime + MARK_WIDTH;
+                turn_off_end_mark = 1;
+                turn_off_active = 0;
+                measured_turn_off_time = ($abstime - turn_off_start_time) / TIME_SCALE;
+            end
+        end
+
+        @(timer(turn_on_until, 0, 0, turn_on_mark)) begin
+            turn_on_mark = 0;
+        end
+
+        @(timer(turn_off_until, 0, 0, turn_off_mark)) begin
+            turn_off_mark = 0;
+        end
+
+        @(timer(turn_on_end_until, 0, 0, turn_on_end_mark)) begin
+            turn_on_end_mark = 0;
+        end
+
+        @(timer(turn_off_end_until, 0, 0, turn_off_end_mark)) begin
+            turn_off_end_mark = 0;
+        end
+
+        V(mark_turn_on) <+ transition(turn_on_mark ? VHIGH : VLOW, 0, TR, TF);
+        V(mark_turn_off) <+ transition(turn_off_mark ? VHIGH : VLOW, 0, TR, TF);
+        V(mark_turn_on_end) <+ transition(turn_on_end_mark ? VHIGH : VLOW, 0, TR, TF);
+        V(mark_turn_off_end) <+ transition(turn_off_end_mark ? VHIGH : VLOW, 0, TR, TF);
+        V(win_turn_on) <+ transition(turn_on_active ? VHIGH : VLOW, 0, TR, TF);
+        V(win_turn_off) <+ transition(turn_off_active ? VHIGH : VLOW, 0, TR, TF);
+        V(t_turn_on) <+ measured_turn_on_time;
+        V(t_turn_off) <+ measured_turn_off_time;
     end
 
 endmodule
@@ -229,94 +326,108 @@ export const verilogAModels: VerilogAModel[] = [
     source: deadtimeGeneratorSource,
   },
   {
-    id: "mosfet-loss-monitor",
-    title: "MOSFET Loss Monitor",
-    category: "Power analysis",
-    fileName: "mosfet_loss_monitor.va",
-    moduleName: "mosfet_loss_monitor",
+    id: "vds-edge-marker",
+    title: "VDS Edge Timing Marker",
+    category: "Timing analysis",
+    fileName: "vds_edge_marker.va",
+    moduleName: "vds_edge_marker",
     summary:
-      "Measure MOSFET drain-path loss and gate-driver supply loss, then split drain loss with external SIMetrix window signals.",
+      "Mark gate-qualified switching start/end points and output measured VDS transition windows.",
     behavior: [
-      "p_total reports clamped VDS x ID drain-path loss from the inline drain current sensor.",
-      "p_conduction, p_turn_on, p_turn_off, p_dead_time, and p_body_diode reuse p_total only while their external window input is high.",
-      "p_gate_drive reports the separate gate-driver supply loss from the driver supply voltage and inline supply current sensor.",
-      "Use mutually exclusive windows before summing categories; body-diode and dead-time windows may intentionally observe the same interval.",
+      "A VGS rising crossing arms the next turn-on marker; VDS must then fall below VDS_HIGH_STABLE - VDS_DEPART_DELTA.",
+      "A VGS falling crossing arms the next turn-off marker; VDS must then rise above VDS_LOW_STABLE + VDS_DEPART_DELTA.",
+      "End markers fire when VDS reaches the opposite plateau boundary set by VDS_END_DELTA.",
+      "win_turn_on and win_turn_off stay high between the detected start and end points.",
+      "t_turn_on and t_turn_off report the last measured transition time divided by TIME_SCALE.",
+      "ARM_TIMEOUT clears a stale gate arm if the matching VDS departure does not happen soon enough.",
+      "MARK_WIDTH controls only the visible start/end marker pulse width; it does not affect the measured transition time.",
     ],
     ports: [
-      { name: "d / g / s", direction: "input", description: "MOSFET drain, gate, and source nodes." },
+      { name: "d / g / s", direction: "input", description: "Drain, gate, and source nodes used to observe VDS and VGS." },
       {
-        name: "id_sense_p / id_sense_n",
-        direction: "input",
-        description: "Zero-volt inline drain-current sensor branch; p to n orientation sets positive ID.",
-      },
-      {
-        name: "vdrv_p / vdrv_n",
-        direction: "input",
-        description: "Gate-driver supply voltage nodes used for VDRV.",
-      },
-      {
-        name: "drv_sense_p / drv_sense_n",
-        direction: "input",
-        description: "Zero-volt inline gate-driver supply current sensor branch.",
-      },
-      {
-        name: "win_cond / win_on / win_off",
-        direction: "input",
-        description: "External conduction, turn-on, and turn-off classification windows.",
-      },
-      {
-        name: "win_dead / win_body",
-        direction: "input",
-        description: "External dead-time and body-diode classification windows.",
-      },
-      {
-        name: "p_total / p_conduction",
+        name: "mark_turn_on",
         direction: "output",
-        description: "Power waveform outputs where 1 V represents 1 W.",
+        description: "Marker pulse for the VDS falling-edge turn-on timing point.",
       },
       {
-        name: "p_turn_on / p_turn_off",
+        name: "mark_turn_off",
         direction: "output",
-        description: "Turn-on and turn-off drain-path power slices.",
+        description: "Start marker pulse for the VDS rising-edge turn-off timing point.",
       },
       {
-        name: "p_gate_drive",
+        name: "mark_turn_on_end / mark_turn_off_end",
         direction: "output",
-        description: "Gate-driver supply power waveform.",
+        description: "End marker pulses when VDS reaches the opposite plateau boundary.",
       },
       {
-        name: "p_dead_time / p_body_diode",
+        name: "win_turn_on / win_turn_off",
         direction: "output",
-        description: "Dead-time and body-diode drain-path power slices.",
+        description: "Active switching windows from detected start to detected end.",
+      },
+      {
+        name: "t_turn_on / t_turn_off",
+        direction: "output",
+        description: "Last measured switching time divided by TIME_SCALE.",
       },
     ],
     parameters: [
-      { name: "VWIN", defaultValue: "0.5", description: "Window-input high threshold." },
       {
-        name: "ID_SIGN",
+        name: "VDS_HIGH_STABLE",
+        defaultValue: "50.0",
+        description: "Stable high VDS level before turn-on.",
+      },
+      {
+        name: "VDS_LOW_STABLE",
+        defaultValue: "0.0",
+        description: "Stable low VDS level before turn-off.",
+      },
+      {
+        name: "VDS_DEPART_DELTA",
+        defaultValue: "2.0",
+        description: "Voltage departure from the stable VDS level that marks transition start.",
+      },
+      {
+        name: "VDS_END_DELTA",
+        defaultValue: "2.0",
+        description: "Voltage distance from the opposite stable VDS level that marks transition end.",
+      },
+      {
+        name: "VGS_ON_ARM",
+        defaultValue: "4.0",
+        description: "Rising VGS threshold that arms the next turn-on VDS departure marker.",
+      },
+      {
+        name: "VGS_OFF_ARM",
         defaultValue: "1.0",
-        description: "Flip to -1.0 if the drain sensor current orientation is reversed.",
+        description: "Falling VGS threshold that arms the next turn-off VDS departure marker.",
       },
       {
-        name: "IDRV_SIGN",
-        defaultValue: "1.0",
-        description: "Flip to -1.0 if the driver supply sensor orientation is reversed.",
+        name: "ARM_TIMEOUT",
+        defaultValue: "200n",
+        description: "Maximum time a gate crossing can wait for the matching VDS departure.",
       },
+      { name: "MARK_WIDTH", defaultValue: "20n", description: "Visible marker pulse width." },
       {
-        name: "CLAMP_NEGATIVE",
-        defaultValue: "1",
-        description: "Clamp negative instantaneous power to zero when set to 1.",
+        name: "TIME_SCALE",
+        defaultValue: "1n",
+        description: "Time scaling for t_turn_on and t_turn_off outputs; 1n makes volts read as ns.",
       },
+      { name: "VHIGH", defaultValue: "1.0", description: "Marker high output level." },
+      { name: "VLOW", defaultValue: "0.0", description: "Marker low output level." },
+      { name: "TR", defaultValue: "100p", description: "Marker output rise time." },
+      { name: "TF", defaultValue: "100p", description: "Marker output fall time." },
     ],
     useSteps: [
-      "Download the .va file, create a SIMetrix Verilog-A symbol, and connect d/g/s to the MOSFET nodes.",
-      "Place id_sense_p/id_sense_n in series with the measured drain path and drv_sense_p/drv_sense_n in series with the gate-driver supply path.",
-      "Connect vdrv_p/vdrv_n across the gate-driver supply; this makes p_gate_drive represent supply-side driver loss instead of VGS x IG gate energy.",
-      "Drive win_cond, win_on, win_off, win_dead, and win_body with external voltage windows above VWIN for the intervals you want classified.",
-      "Probe the p_* outputs as power waveforms where 1 V equals 1 W; average them for power or integrate a switching window for energy.",
-      "Keep category windows mutually exclusive when building a loss sum. If win_dead and win_body overlap, those outputs are two views of the same drain-path energy.",
+      "Download the .va file and create a SIMetrix Verilog-A symbol.",
+      "Connect d, g, and s to the MOSFET drain, gate, and source nodes, then label the outputs such as MARK_Q1_ON and MARK_Q1_OFF.",
+      "Set VGS_ON_ARM and VGS_OFF_ARM from the actual gate waveform so the marker only responds after the correct gate-command direction.",
+      "Set ARM_TIMEOUT just longer than the expected gate-to-VDS delay so an old gate edge cannot trigger a later unrelated VDS crossing.",
+      "Set VDS_HIGH_STABLE to the off-state VDS plateau and VDS_LOW_STABLE to the on-state VDS plateau.",
+      "Set VDS_DEPART_DELTA just above normal ripple/noise for the start point, and set VDS_END_DELTA near the opposite plateau boundary for the end point.",
+      "Plot VGS, VDS, Power(Q1), start/end markers, and win_turn_off or win_turn_on together to confirm the full switching window.",
+      "Use t_turn_on and t_turn_off as scaled timing readouts; with TIME_SCALE=1n, an output of 7.5 means 7.5 ns.",
     ],
-    source: mosfetLossMonitorSource,
+    source: vdsEdgeMarkerSource,
   },
 ];
 
