@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const DEFAULT_MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024;
+const DEFAULT_MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 * 1024;
 const DEFAULT_UPLOAD_SESSION_EXPIRES_SECONDS = 15 * 60;
 
 function read_integer_env(name, fallback) {
