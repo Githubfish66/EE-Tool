@@ -34,24 +34,64 @@ describe("verilogAModelLibrary", () => {
     );
   });
 
-  it("ships the externally-windowed MOSFET loss monitor source", () => {
-    const model = getVerilogAModel("mosfet-loss-monitor");
+  it("ships the VDS edge timing marker source", () => {
+    const model = getVerilogAModel("vds-edge-marker");
 
-    expect(model.fileName).toBe("mosfet_loss_monitor.va");
-    expect(model.source).toContain("module mosfet_loss_monitor");
-    expect(model.source).toContain("branch (id_sense_p, id_sense_n) drain_sensor;");
-    expect(model.source).toContain("branch (drv_sense_p, drv_sense_n) driver_sensor;");
-    expect(model.source).toContain("V(p_turn_on) <+ ((V(win_on) > VWIN) ? p_drain_loss : 0.0);");
-    expect(model.source).toContain("V(p_body_diode) <+ ((V(win_body) > VWIN) ? p_drain_loss : 0.0);");
-    expect(model.source).toContain("V(p_gate_drive) <+ p_driver_loss;");
-    expect(model.behavior.join(" ")).toContain("mutually exclusive windows");
+    expect(model.fileName).toBe("vds_edge_marker.va");
+    expect(model.source).toContain("mark_turn_on_end, mark_turn_off_end");
+    expect(model.source).toContain("win_turn_on, win_turn_off");
+    expect(model.source).toContain("t_turn_on, t_turn_off");
+    expect(model.source).toContain("@(cross(V(g, s) - VGS_ON_ARM, +1))");
+    expect(model.source).toContain("@(cross(V(g, s) - VGS_OFF_ARM, -1))");
+    expect(model.source).toContain("turn_on_arm_until = $abstime + ARM_TIMEOUT;");
+    expect(model.source).toContain("turn_off_arm_until = $abstime + ARM_TIMEOUT;");
+    expect(model.source).toContain("@(timer(turn_on_arm_until, 0, 0, turn_on_armed))");
+    expect(model.source).toContain("@(timer(turn_off_arm_until, 0, 0, turn_off_armed))");
+    expect(model.source).toContain("@(cross(V(d, s) - (VDS_HIGH_STABLE - VDS_DEPART_DELTA), -1))");
+    expect(model.source).toContain("@(cross(V(d, s) - (VDS_LOW_STABLE + VDS_DEPART_DELTA), +1))");
+    expect(model.source).toContain("@(cross(V(d, s) - (VDS_LOW_STABLE + VDS_END_DELTA), -1))");
+    expect(model.source).toContain("@(cross(V(d, s) - (VDS_HIGH_STABLE - VDS_END_DELTA), +1))");
+    expect(model.source).toContain("if (turn_on_armed && (V(g, s) > VGS_ON_ARM))");
+    expect(model.source).toContain("if (turn_off_armed && (V(g, s) < VGS_OFF_ARM))");
+    expect(model.source).toContain("turn_on_until = $abstime + MARK_WIDTH;");
+    expect(model.source).toContain("measured_turn_off_time = ($abstime - turn_off_start_time) / TIME_SCALE;");
+    expect(model.source).toContain("V(mark_turn_on) <+ transition");
+    expect(model.source).toContain("V(win_turn_off) <+ transition");
+    expect(model.source).toContain("V(t_turn_off) <+ measured_turn_off_time;");
+    expect(model.parameters.map((parameter) => parameter.name)).toEqual(
+      expect.arrayContaining([
+        "VDS_HIGH_STABLE",
+        "VDS_LOW_STABLE",
+        "VDS_DEPART_DELTA",
+        "VDS_END_DELTA",
+        "VGS_ON_ARM",
+        "VGS_OFF_ARM",
+        "ARM_TIMEOUT",
+        "MARK_WIDTH",
+        "TIME_SCALE",
+      ]),
+    );
   });
 
-  it("formats MOSFET loss monitor SIMetrix parameters", () => {
-    const model = getVerilogAModel("mosfet-loss-monitor");
+  it("formats VDS edge marker threshold assignments", () => {
+    const model = getVerilogAModel("vds-edge-marker");
 
     expect(formatVerilogAParameterAssignments(model)).toBe(
-      ["VWIN=0.5", "ID_SIGN=1.0", "IDRV_SIGN=1.0", "CLAMP_NEGATIVE=1"].join("\n"),
+      [
+        "VDS_HIGH_STABLE=50.0",
+        "VDS_LOW_STABLE=0.0",
+        "VDS_DEPART_DELTA=2.0",
+        "VDS_END_DELTA=2.0",
+        "VGS_ON_ARM=4.0",
+        "VGS_OFF_ARM=1.0",
+        "ARM_TIMEOUT=200n",
+        "MARK_WIDTH=20n",
+        "TIME_SCALE=1n",
+        "VHIGH=1.0",
+        "VLOW=0.0",
+        "TR=100p",
+        "TF=100p",
+      ].join("\n"),
     );
   });
 });

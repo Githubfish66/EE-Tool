@@ -1,5 +1,44 @@
 # Completed
 
+## 更新 GitHub 與 Render 部署
+
+- Completion date: 2026-05-24
+- Modified files:
+  - `package.json`
+  - `package-lock.json`
+  - `README.md`
+  - `docs/README.md`
+  - `docs/simetrix/SIMetrix_simulation_speed_guide.md`
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `src/lib/verilogAModelLibrary.ts`
+  - `src/lib/verilogAModelLibrary.test.ts`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: 將版本升級到 v0.4.0，準備提交並推送本機尚未同步到 GitHub/Render 的 SIMetrix 指南、Verilog-A 模型更新、RLC workbench 既有本機 commit 與文件整理。驗證通過 `npm run lint`、`npm run test`、`npm run build`。
+
+## 將 SIMetrix 模擬速度指南加入側邊工具列
+
+- Completion date: 2026-05-24
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `README.md`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: 在左側工具選單新增 `SIMetrix 指南`，位置放在 `SIMetrix 腳本` 下方、`RLC 符號求解` 上方。頁面直接載入 `docs/simetrix/SIMetrix_simulation_speed_guide.md`，並將標題、段落、清單與表格轉成 app 內可讀版面。驗證通過 `npm run lint`、`npm run test`、`npm run build`，並用瀏覽器確認選單項目與指南內容可正常顯示。
+
+## 安排 SIMetrix transient 模擬速度文件位置
+
+- Completion date: 2026-05-24
+- Modified files:
+  - `docs/simetrix/SIMetrix_simulation_speed_guide.md`
+  - `docs/README.md`
+  - `README.md`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: 將根目錄的 SIMetrix transient 模擬速度優化手冊移到 `docs/simetrix/`，並新增 `docs/README.md` 與根目錄 README 的文件入口，讓後續 SIMetrix 操作手冊可以集中放在同一區。
+
 ## Restore RLC Iframe Loading
 
 - Completion date: 2026-05-24

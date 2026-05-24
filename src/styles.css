@@ -310,6 +310,94 @@ h1 {
   grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
 }
 
+.simetrix-guide-workspace {
+  display: grid;
+}
+
+.simetrix-guide-document {
+  display: grid;
+  gap: 18px;
+  max-width: 1180px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 28px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.simetrix-guide-document h1,
+.simetrix-guide-document h2,
+.simetrix-guide-document h3 {
+  color: var(--ink);
+  letter-spacing: 0;
+}
+
+.simetrix-guide-document h1 {
+  margin-bottom: 2px;
+  font-size: 1.8rem;
+  line-height: 1.2;
+}
+
+.simetrix-guide-document h2 {
+  margin: 8px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 1.22rem;
+}
+
+.simetrix-guide-document h3 {
+  margin: 4px 0 0;
+  font-size: 1.04rem;
+}
+
+.simetrix-guide-document p,
+.simetrix-guide-document li {
+  margin: 0;
+  color: #334155;
+  line-height: 1.72;
+}
+
+.simetrix-guide-document ul,
+.simetrix-guide-document ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.guide-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.guide-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.guide-table th,
+.guide-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.guide-table th {
+  background: #eefdfa;
+  color: #0f766e;
+  font-weight: 850;
+}
+
+.guide-table tr:last-child td {
+  border-bottom: 0;
+}
+
 .verilog-workspace .summary-strip {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1557,6 +1645,10 @@ textarea:focus {
   .component-row,
   .formula-row {
     grid-template-columns: 1fr;
+  }
+
+  .simetrix-guide-document {
+    padding: 18px;
   }
 
   .verilog-port-row,

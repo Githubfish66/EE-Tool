@@ -20,6 +20,8 @@ half-bridge gate-driver circuits.
   marks the previous result as stale.
 - Recommended MLCC specification plus Digi-Key and Mouser search links.
 - SIMetrix model sweep script generator for selected switching instances.
+- In-app SIMetrix transient simulation speed guide for convergence and
+  timestep troubleshooting.
 - RLC symbolic solver for SIMPLIS/SPICE-like R/L/C/V netlists with `.PRINT`
   voltage/current outputs, SymPy MNA s-domain expressions, numeric
   substitution, inverse-Laplace time-domain expressions, and waveform previews.
@@ -34,6 +36,10 @@ half-bridge gate-driver circuits.
 Live distributor stock and pricing require API keys, so this frontend
 generates distributor search links instead of calling Digi-Key or Mouser APIs
 directly.
+
+## Documentation
+
+- [SIMetrix transient simulation speed guide](docs/simetrix/SIMetrix_simulation_speed_guide.md)
 
 ## Run Locally
 
