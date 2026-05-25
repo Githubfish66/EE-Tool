@@ -1,5 +1,22 @@
 # Completed
 
+## 精簡 SIMetrix 指南並補充 Convergence Dialog 用法
+
+- Completion date: 2026-05-25
+- Modified files:
+  - `docs/simetrix/SIMetrix_simulation_speed_guide.md`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: 將 SIMetrix 指南從重複的長篇清單精簡成診斷流程、Convergence Dialog 使用時機、電路修改清單與最終驗證檢查。依 SIMetrix 官方文件補充 Iteration mode、Absolute current、Minimum time step、Slew rate for discontinuous sources、Shunt capacitance、Inductor loss TC 的適用與不適用情境。驗證通過 `npm run lint`、`npm run build`，並在瀏覽器確認 app 內指南頁已載入新版內容。
+
+## 補齊 Choose Analysis 三張設定圖用法
+
+- Completion date: 2026-05-25
+- Modified files:
+  - `docs/simetrix/SIMetrix_simulation_speed_guide.md`
+  - `tasks/completed.md`
+- Notes: 依使用者提供的三張圖片補上 `Choose Analysis > Options`、`Choose Analysis > Transient`、`Transient Advanced Options` 的設定說明。每個會影響速度、輸出資料量、收斂或 transient debug 的選項都加入使用時機與簡單例子，包含 tolerance、temperature、initial condition force resistance、data output、PRINT step、multi-step、snapshot、max/min timestep、Gear/Trapezoidal、Skip DC bias point、Fast start。驗證通過 `npm run lint` 與 `npm run build`。
+
 ## Fix RLC Iframe Route
 
 - Completion date: 2026-05-25
