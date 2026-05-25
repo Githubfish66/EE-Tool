@@ -1044,7 +1044,7 @@ function RlcSolverWorkspace() {
       <iframe
         className="rlc-original-frame"
         title="Original RLC Symbolic Solver"
-        src="/rlc-original?v=workbench-fill-result"
+        src="/rlc-original/?v=workbench-fill-result"
       />
     </section>
   );
