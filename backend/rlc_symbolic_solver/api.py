@@ -69,6 +69,7 @@ if ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 if WEB_DIR.exists():
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+    app.mount("/rlc-original", StaticFiles(directory=WEB_DIR, html=True), name="rlc-original")
 
 
 @app.get("/api/health")

@@ -1,5 +1,15 @@
 # Completed
 
+## Fix RLC Iframe Route
+
+- Completion date: 2026-05-25
+- Modified files:
+  - `backend/rlc_symbolic_solver/api.py`
+  - `src/App.tsx`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Fixed the RLC page nesting EE Tool inside the iframe by mounting the original solver web bundle explicitly at `/rlc-original/` and pointing the React iframe to the trailing-slash route. This prevents the SPA fallback from serving `dist/index.html` inside the iframe. Validation passed with `npm run build`, `.venv\Scripts\python.exe -m pytest -q backend\tests`, direct HTTP checks for `/rlc-original/`, and browser verification that the iframe contains `Netlist Solver` and not the Bootstrap page.
+
 ## 加入 Google Drive 分享服務上傳密碼
 
 - Completion date: 2026-05-24
