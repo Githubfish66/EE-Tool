@@ -84,6 +84,11 @@ type FeatureId =
   | "simetrix-guide"
   | "rlc-solver"
   | "verilog-a";
+type NavFeatureId = FeatureId | "gate" | "rc" | "loss";
+type NavGroup = {
+  title: Record<Locale, string>;
+  items: NavFeatureId[];
+};
 
 type UnitOption = {
   label: string;
@@ -141,7 +146,7 @@ const compensatorModeLabels: Record<CompensatorDesignMode, string> = {
   manual: "Manual pole-zero",
 };
 
-const featureIcons: Record<FeatureId | "gate" | "rc" | "loss", LucideIcon> = {
+const featureIcons: Record<NavFeatureId, LucideIcon> = {
   bootstrap: Calculator,
   compensator: Gauge,
   simetrix: FileCode2,
@@ -153,6 +158,44 @@ const featureIcons: Record<FeatureId | "gate" | "rc" | "loss", LucideIcon> = {
   rc: CircuitBoard,
   loss: Zap,
 };
+
+const enabledFeatureIds: FeatureId[] = [
+  "bootstrap",
+  "compensator",
+  "simetrix",
+  "mosfet-thermal",
+  "verilog-a",
+  "simetrix-guide",
+  "rlc-solver",
+];
+
+const featureNavGroups: NavGroup[] = [
+  {
+    title: {
+      zh: "周邊電路計算",
+      en: "Peripheral Circuit Calculations",
+    },
+    items: ["bootstrap", "compensator", "gate", "rc", "loss"],
+  },
+  {
+    title: {
+      zh: "SIMetrix 工作流",
+      en: "SIMetrix Workflow",
+    },
+    items: ["simetrix", "mosfet-thermal", "verilog-a", "simetrix-guide"],
+  },
+  {
+    title: {
+      zh: "電路分析",
+      en: "Circuit Analysis",
+    },
+    items: ["rlc-solver"],
+  },
+];
+
+function isEnabledFeature(featureId: NavFeatureId): featureId is FeatureId {
+  return enabledFeatureIds.includes(featureId as FeatureId);
+}
 
 const unitSets: Record<string, UnitOption[]> = {
   voltage: [
@@ -213,32 +256,32 @@ const unitSets: Record<string, UnitOption[]> = {
 
 const translations = {
   zh: {
-    eyebrow: "高側閘極驅動設計",
-    title: "Bootstrap 電容計算器",
+    eyebrow: "周邊電路計算",
+    title: "Bootstrap 驅動電容設計",
     subtitle:
       "依 TI、onsemi、Infineon 參考資料分別計算 high-side bootstrap 電容，保留完整公式代入流程與設計警告。",
-    compensatorEyebrow: "電源迴路設計",
-    compensatorTitle: "補償器計算器",
+    compensatorEyebrow: "周邊電路計算",
+    compensatorTitle: "迴路補償設計器",
     compensatorSubtitle:
       "匯入 power stage Bode plot，依 Chapter 5 非隔離 op amp 補償器與 Appendix 5B k-factor 方法計算 Type I/II/III 元件。",
-    simetrixEyebrow: "SIMetrix 自動化",
-    simetrixTitle: "開關 Model Sweep 腳本產生器",
+    simetrixEyebrow: "SIMetrix 工作流",
+    simetrixTitle: "SIMetrix 損耗掃描腳本",
     simetrixSubtitle:
       "匯入 SIMetrix netlist，自動偵測 Q/M/S/X 開關候選元件，輸入待比較 model 後產生損耗分析用 .sxscr 腳本。",
-    mosfetThermalEyebrow: "MOSFET 熱設計",
-    mosfetThermalTitle: "L1 Tj 迭代助手",
+    mosfetThermalEyebrow: "SIMetrix 工作流",
+    mosfetThermalTitle: "MOSFET 接面溫度迭代",
     mosfetThermalSubtitle:
       "輸入 SIMetrix L1 固定溫度模擬量到的平均損耗與熱阻條件，計算估算 Tj、收斂誤差、安全裕度，以及下一輪建議模擬溫度。",
-    simetrixGuideEyebrow: "SIMetrix 操作手冊",
-    simetrixGuideTitle: "Transient 模擬速度優化",
+    simetrixGuideEyebrow: "SIMetrix 工作流",
+    simetrixGuideTitle: "SIMetrix 暫態加速指南",
     simetrixGuideSubtitle:
       "整理 transient 模擬過慢、timestep 掉到極小、switching edge 附近不收斂與高頻 ringing 卡住時的排查順序。",
-    rlcSolverEyebrow: "RLC 網路分析",
-    rlcSolverTitle: "RLC 符號求解器",
+    rlcSolverEyebrow: "電路分析",
+    rlcSolverTitle: "RLC 符號分析器",
     rlcSolverSubtitle:
       "貼上 SIMPLIS/SPICE 類 RLC netlist，使用 MNA 在前端求解 .PRINT 電壓/電流輸出，快速取得 s-domain 符號式與元件數值代入結果。",
-    verilogAEyebrow: "行為模型庫",
-    verilogATitle: "Verilog-A 功能模型",
+    verilogAEyebrow: "SIMetrix 工作流",
+    verilogATitle: "SIMetrix Verilog-A 模型庫",
     verilogASubtitle:
       "從可重用模型庫挑選控制小功能，檢視參數與原始碼後下載 .va 檔帶回 SIMetrix 使用。",
     language: "語言",
@@ -294,45 +337,45 @@ const translations = {
       "此工具提供工程估算與公式追溯，最終仍需依 gate driver、MOSFET、diode、電容 DC bias、layout 與實測波形確認。",
     marginPrefix: "目前選用電容比計算最小值高出",
     features: {
-      bootstrap: "Bootstrap 電容",
-      compensator: "補償器計算",
-      simetrix: "SIMetrix 腳本",
-      "mosfet-thermal": "L1 Tj 迭代",
-      "simetrix-guide": "SIMetrix 指南",
-      "rlc-solver": "RLC 符號求解",
-      "verilog-a": "Verilog-A 模型",
+      bootstrap: "Bootstrap 驅動電容設計",
+      compensator: "迴路補償設計器",
+      simetrix: "SIMetrix 損耗掃描腳本",
+      "mosfet-thermal": "MOSFET 接面溫度迭代",
+      "simetrix-guide": "SIMetrix 暫態加速指南",
+      "rlc-solver": "RLC 符號分析器",
+      "verilog-a": "SIMetrix Verilog-A 模型庫",
       gate: "閘極電阻",
       rc: "RC 濾波",
       loss: "功耗計算",
     },
   },
   en: {
-    eyebrow: "High-side gate driver design",
-    title: "Bootstrap Capacitor Calculator",
+    eyebrow: "Peripheral circuit calculations",
+    title: "Bootstrap Driver Capacitor Design",
     subtitle:
       "Calculate high-side bootstrap capacitance with TI, onsemi, and Infineon methods, including formula trace and design warnings.",
-    compensatorEyebrow: "Power-loop design",
-    compensatorTitle: "Compensator Calculator",
+    compensatorEyebrow: "Peripheral circuit calculations",
+    compensatorTitle: "Loop Compensation Designer",
     compensatorSubtitle:
       "Import a power-stage Bode plot, then calculate Type I/II/III non-isolated op amp compensator parts with Chapter 5 and Appendix 5B k-factor equations.",
-    simetrixEyebrow: "SIMetrix automation",
-    simetrixTitle: "Switch Model Sweep Script Generator",
+    simetrixEyebrow: "SIMetrix workflow",
+    simetrixTitle: "SIMetrix Loss Sweep Script",
     simetrixSubtitle:
       "Import a SIMetrix netlist, detect likely Q/M/S/X switching instances, enter model names, and generate a loss-analysis .sxscr sweep script.",
-    mosfetThermalEyebrow: "MOSFET thermal design",
-    mosfetThermalTitle: "L1 Tj Iteration Helper",
+    mosfetThermalEyebrow: "SIMetrix workflow",
+    mosfetThermalTitle: "MOSFET Junction Temperature Iteration",
     mosfetThermalSubtitle:
       "Enter measured average loss from a fixed-temperature SIMetrix L1 run and thermal path values to estimate Tj, convergence error, margin, and the next simulation temperature.",
-    simetrixGuideEyebrow: "SIMetrix guide",
-    simetrixGuideTitle: "Transient Simulation Speed Guide",
+    simetrixGuideEyebrow: "SIMetrix workflow",
+    simetrixGuideTitle: "SIMetrix Transient Speed Guide",
     simetrixGuideSubtitle:
       "A troubleshooting guide for slow transient runs, tiny timesteps, switching-edge convergence issues, and high-frequency ringing.",
-    rlcSolverEyebrow: "RLC network analysis",
-    rlcSolverTitle: "RLC Symbolic Solver",
+    rlcSolverEyebrow: "Circuit analysis",
+    rlcSolverTitle: "RLC Symbolic Analyzer",
     rlcSolverSubtitle:
       "Paste a SIMPLIS/SPICE-like RLC netlist and solve .PRINT voltage/current outputs in the browser with MNA, including s-domain expressions and numeric substitution.",
-    verilogAEyebrow: "Behavioral model library",
-    verilogATitle: "Verilog-A Function Models",
+    verilogAEyebrow: "SIMetrix workflow",
+    verilogATitle: "SIMetrix Verilog-A Model Library",
     verilogASubtitle:
       "Pick a reusable control utility, inspect its parameters and source, then download the .va file for SIMetrix.",
     language: "Language",
@@ -388,13 +431,13 @@ const translations = {
       "Engineering guidance only. Verify final values with gate-driver limits, MOSFET data, diode stress, capacitor DC bias, layout, and measured waveforms.",
     marginPrefix: "Selected capacitance margin above calculated minimum:",
     features: {
-      bootstrap: "Bootstrap capacitor",
-      compensator: "Compensator calculator",
-      simetrix: "SIMetrix script",
-      "mosfet-thermal": "L1 Tj iteration",
-      "simetrix-guide": "SIMetrix guide",
-      "rlc-solver": "RLC symbolic solver",
-      "verilog-a": "Verilog-A models",
+      bootstrap: "Bootstrap driver capacitor",
+      compensator: "Loop compensation designer",
+      simetrix: "SIMetrix loss sweep script",
+      "mosfet-thermal": "MOSFET Tj iteration",
+      "simetrix-guide": "SIMetrix transient speed guide",
+      "rlc-solver": "RLC symbolic analyzer",
+      "verilog-a": "SIMetrix Verilog-A models",
       gate: "Gate resistor",
       rc: "RC filter",
       loss: "Power loss",
@@ -794,17 +837,6 @@ export function App() {
   const activeUnits = units[method];
   const t = translations[locale];
   const featureHeader = getFeatureHeader(feature, locale);
-  const BootstrapIcon = featureIcons.bootstrap;
-  const CompensatorIcon = featureIcons.compensator;
-  const SimetrixIcon = featureIcons.simetrix;
-  const MosfetThermalIcon = featureIcons["mosfet-thermal"];
-  const SimetrixGuideIcon = featureIcons["simetrix-guide"];
-  const RlcSolverIcon = featureIcons["rlc-solver"];
-  const VerilogAIcon = featureIcons["verilog-a"];
-  const GateIcon = featureIcons.gate;
-  const RcIcon = featureIcons.rc;
-  const LossIcon = featureIcons.loss;
-
   function updateValue(key: string, value: number) {
     setValues((current) => ({
       ...current,
@@ -1078,77 +1110,39 @@ export function App() {
       <aside className="feature-nav" aria-label="EE Tool features">
         <div className="brand-block">
           <span>EE</span>
-          <strong>Tool</strong>
+          <div>
+            <strong>EE Tool</strong>
+            <small>Power Electronics Workbench</small>
+          </div>
         </div>
         <nav>
-          <button
-            className={feature === "bootstrap" ? "active" : ""}
-            type="button"
-            onClick={() => setFeature("bootstrap")}
-          >
-            <BootstrapIcon aria-hidden="true" size={18} />
-            {t.features.bootstrap}
-          </button>
-          <button
-            className={feature === "compensator" ? "active" : ""}
-            type="button"
-            onClick={() => setFeature("compensator")}
-          >
-            <CompensatorIcon aria-hidden="true" size={18} />
-            {t.features.compensator}
-          </button>
-          <button
-            className={feature === "simetrix" ? "active" : ""}
-            type="button"
-            onClick={() => setFeature("simetrix")}
-          >
-            <SimetrixIcon aria-hidden="true" size={18} />
-            {t.features.simetrix}
-          </button>
-          <button
-            className={feature === "mosfet-thermal" ? "active" : ""}
-            type="button"
-            onClick={() => setFeature("mosfet-thermal")}
-          >
-            <MosfetThermalIcon aria-hidden="true" size={18} />
-            {t.features["mosfet-thermal"]}
-          </button>
-          <button
-            className={feature === "simetrix-guide" ? "active" : ""}
-            type="button"
-            onClick={() => setFeature("simetrix-guide")}
-          >
-            <SimetrixGuideIcon aria-hidden="true" size={18} />
-            {t.features["simetrix-guide"]}
-          </button>
-          <button
-            className={feature === "rlc-solver" ? "active" : ""}
-            type="button"
-            onClick={() => setFeature("rlc-solver")}
-          >
-            <RlcSolverIcon aria-hidden="true" size={18} />
-            {t.features["rlc-solver"]}
-          </button>
-          <button
-            className={feature === "verilog-a" ? "active" : ""}
-            type="button"
-            onClick={() => setFeature("verilog-a")}
-          >
-            <VerilogAIcon aria-hidden="true" size={18} />
-            {t.features["verilog-a"]}
-          </button>
-          <button type="button" disabled>
-            <GateIcon aria-hidden="true" size={18} />
-            {t.features.gate}
-          </button>
-          <button type="button" disabled>
-            <RcIcon aria-hidden="true" size={18} />
-            {t.features.rc}
-          </button>
-          <button type="button" disabled>
-            <LossIcon aria-hidden="true" size={18} />
-            {t.features.loss}
-          </button>
+          {featureNavGroups.map((group) => (
+            <div className="feature-group" key={group.title.en}>
+              <p className="feature-group-title">{group.title[locale]}</p>
+              <div className="feature-group-items">
+                {group.items.map((item) => {
+                  const Icon = featureIcons[item];
+                  const enabled = isEnabledFeature(item);
+                  return (
+                    <button
+                      className={enabled && feature === item ? "active" : ""}
+                      disabled={!enabled}
+                      key={item}
+                      type="button"
+                      onClick={() => {
+                        if (enabled) {
+                          setFeature(item);
+                        }
+                      }}
+                    >
+                      <Icon aria-hidden="true" size={18} />
+                      {t.features[item]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </aside>
 
