@@ -1071,6 +1071,62 @@ textarea:focus {
   margin-top: 12px;
 }
 
+.digital-compensator-panel {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+
+.digital-compensator-panel .metric strong {
+  font-size: clamp(0.98rem, 1.35vw, 1.2rem);
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.digital-coefficient-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.digital-code-preview {
+  min-height: 420px;
+}
+
+.digital-bode-chart {
+  min-height: 600px;
+}
+
+.digital-loop-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.digital-margin-panel {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.simplis-dll-guide {
+  margin-top: 20px;
+}
+
+.digital-guide-code {
+  display: grid;
+  gap: 8px;
+}
+
+.digital-guide-code code {
+  display: block;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  background: #101827;
+  color: #d5f5ef;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 0.86rem;
+}
+
 .component-table {
   display: grid;
   gap: 8px;
@@ -1948,6 +2004,10 @@ textarea:focus {
   }
 
   .component-values-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .digital-coefficient-grid {
     grid-template-columns: 1fr;
   }
 

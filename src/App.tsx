@@ -40,6 +40,11 @@ import {
   parseBodeCsv,
 } from "./lib/compensatorCalculator";
 import {
+  DigitalCompensatorResult,
+  calculateDigitalCompensator,
+  formatCoefficient,
+} from "./lib/digitalCompensatorCalculator";
+import {
   SimetrixComponent,
   SimetrixScriptOptions,
   SimetrixSweepMode,
@@ -251,6 +256,9 @@ const unitSets: Record<string, UnitOption[]> = {
   ],
   gain: [
     { label: "ratio", factor: 1 },
+  ],
+  count: [
+    { label: "count", factor: 1 },
   ],
 };
 
@@ -485,6 +493,13 @@ const fieldLabels = {
     zeroFrequency2: "f_z2 第二零點頻率",
     poleFrequency1: "f_p1 第一極點頻率",
     poleFrequency2: "f_p2 第二極點頻率",
+    samplingFrequency: "f_s 數位控制器取樣頻率",
+    dutyMin: "DUTY_MIN 最小 duty",
+    dutyMax: "DUTY_MAX 最大 duty",
+    initialDuty: "INITIAL_DUTY 初始 duty",
+    outputDelaySamples: "OUTPUT_DELAY 輸出延遲",
+    adcBits: "ADC_BITS 解析度",
+    dpwmBits: "DPWM_BITS 解析度",
   },
   en: {
     vdd: "V_DD driver supply",
@@ -525,6 +540,13 @@ const fieldLabels = {
     zeroFrequency2: "f_z2 second zero frequency",
     poleFrequency1: "f_p1 first pole frequency",
     poleFrequency2: "f_p2 second pole frequency",
+    samplingFrequency: "f_s digital sampling frequency",
+    dutyMin: "DUTY_MIN minimum duty",
+    dutyMax: "DUTY_MAX maximum duty",
+    initialDuty: "INITIAL_DUTY initial duty",
+    outputDelaySamples: "OUTPUT_DELAY output delay",
+    adcBits: "ADC_BITS resolution",
+    dpwmBits: "DPWM_BITS resolution",
   },
 };
 
@@ -567,6 +589,13 @@ const fieldUnits: Record<string, string> = {
   zeroFrequency2: "frequency",
   poleFrequency1: "frequency",
   poleFrequency2: "frequency",
+  samplingFrequency: "frequency",
+  dutyMin: "duty",
+  dutyMax: "duty",
+  initialDuty: "duty",
+  outputDelaySamples: "count",
+  adcBits: "count",
+  dpwmBits: "count",
 };
 
 const defaultUnits: Record<MethodId, UnitState> = {
@@ -666,6 +695,13 @@ const defaultCompensatorValues: NumericState = {
   zeroFrequency2: 8,
   poleFrequency1: 50,
   poleFrequency2: 50,
+  samplingFrequency: 100,
+  dutyMin: 2,
+  dutyMax: 95,
+  initialDuty: 10,
+  outputDelaySamples: 1,
+  adcBits: 12,
+  dpwmBits: 10,
 };
 
 const defaultCompensatorUnits: UnitState = {
@@ -681,6 +717,13 @@ const defaultCompensatorUnits: UnitState = {
   zeroFrequency2: "kHz",
   poleFrequency1: "kHz",
   poleFrequency2: "kHz",
+  samplingFrequency: "kHz",
+  dutyMin: "%",
+  dutyMax: "%",
+  initialDuty: "%",
+  outputDelaySamples: "count",
+  adcBits: "count",
+  dpwmBits: "count",
 };
 
 const defaultMosfetThermalInputs: MosfetThermalInputs = {
@@ -2705,6 +2748,23 @@ function CompensatorWorkspace({
             </div>
           </section>
 
+          <section className="subpanel">
+            <h3>
+              <CircuitBoard aria-hidden="true" size={16} />
+              Digital controller
+            </h3>
+            <p>Tustin conversion, duty clamp, delay, and quantization settings for SIMPLIS C-Code DLL output.</p>
+            <div className="field-grid">
+              <NumberField fieldKey="samplingFrequency" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+              <NumberField fieldKey="dutyMin" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+              <NumberField fieldKey="dutyMax" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+              <NumberField fieldKey="initialDuty" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+              <NumberField fieldKey="outputDelaySamples" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+              <NumberField fieldKey="adcBits" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+              <NumberField fieldKey="dpwmBits" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            </div>
+          </section>
+
           <div className="analysis-actions">
             <button
               className="run-analysis"
@@ -2719,7 +2779,13 @@ function CompensatorWorkspace({
         </form>
 
         {analysis ? (
-          <CompensatorResultPanel result={analysis} locale={locale} dirty={analysisDirty} />
+          <CompensatorResultPanel
+            result={analysis}
+            locale={locale}
+            dirty={analysisDirty}
+            values={values}
+            units={units}
+          />
         ) : (
           <PendingPanel locale={locale} />
         )}
@@ -2947,13 +3013,28 @@ function CompensatorResultPanel({
   result,
   locale,
   dirty,
+  values,
+  units,
 }: {
   result: CompensatorResult;
   locale: Locale;
   dirty: boolean;
+  values: NumericState;
+  units: UnitState;
 }) {
   const t = translations[locale];
   const dangerCount = result.messages.filter((message) => message.severity === "danger").length;
+  const digitalResult = calculateDigitalCompensator({
+    analogResult: result,
+    samplingFrequency: toSi(values.samplingFrequency, units.samplingFrequency),
+    dutyMin: toSi(values.dutyMin, units.dutyMin),
+    dutyMax: toSi(values.dutyMax, units.dutyMax),
+    initialDuty: toSi(values.initialDuty, units.initialDuty),
+    outputDelaySamples: toSi(values.outputDelaySamples, units.outputDelaySamples),
+    adcBits: toSi(values.adcBits, units.adcBits),
+    dpwmBits: toSi(values.dpwmBits, units.dpwmBits),
+    method: "tustin",
+  });
   return (
     <section className="result-panel">
       {dirty && <div className="status warning">{t.staleNotice}</div>}
@@ -3006,6 +3087,8 @@ function CompensatorResultPanel({
         </div>
       </section>
 
+      <DigitalCompensatorPanel analogResult={result} result={digitalResult} locale={locale} />
+
       <CalculationSteps result={result} locale={locale} />
 
       <section className="message-panel">
@@ -3029,6 +3112,455 @@ function formatRawComponent(component: {
   return component.unit === "resistance"
     ? formatCompensatorComponent({ ...component, label: "", recommended: component.ideal })
     : formatCapacitance(component.ideal);
+}
+
+function DigitalCompensatorPanel({
+  analogResult,
+  result,
+  locale,
+}: {
+  analogResult: CompensatorResult;
+  result: DigitalCompensatorResult;
+  locale: Locale;
+}) {
+  const text = locale === "zh"
+    ? {
+      title: "數位控制器與 SIMPLIS DLL",
+      coefficientTitle: "IIR 係數",
+      controllerBodeTitle: "類比 / 數位控制器 Bode 比較",
+      loopBodeTitle: "數位 Loop Gain 與 Delay Margin",
+      delayBudgetTitle: "Delay budget",
+      parameterTitle: "SIMPLIS 參數",
+      codeTitle: "C-Code DLL 核心片段",
+      guideTitle: "SIMPLIS DLL 使用說明",
+      downloadParams: "下載參數",
+      downloadCode: "下載 C code",
+      numerator: "Numerator",
+      denominator: "Denominator",
+      digitalPm: "Digital PM",
+      delayPm: "Delay PM",
+      delaySamples: "Delay samples",
+    }
+    : {
+      title: "Digital Controller And SIMPLIS DLL",
+      coefficientTitle: "IIR Coefficients",
+      controllerBodeTitle: "Analog / Digital Controller Bode",
+      loopBodeTitle: "Digital Loop Gain And Delay Margin",
+      delayBudgetTitle: "Delay budget",
+      parameterTitle: "SIMPLIS Parameters",
+      codeTitle: "C-Code DLL Core",
+      guideTitle: "SIMPLIS DLL Usage Guide",
+      downloadParams: "Download params",
+      downloadCode: "Download C code",
+      numerator: "Numerator",
+      denominator: "Denominator",
+      digitalPm: "Digital PM",
+      delayPm: "Delay PM",
+      delaySamples: "Delay samples",
+    };
+
+  function downloadText(fileName: string, content: string) {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  return (
+    <section className="formula-panel digital-compensator-panel">
+      <div className="panel-heading">
+        <h2>{text.title}</h2>
+      </div>
+      <div className="summary-strip">
+        <Metric label="f_s" value={formatDigitalFrequency(result.samplingFrequency)} />
+        <Metric label="T_s" value={formatSamplingPeriod(result.samplingPeriod)} />
+        <Metric label="IIR order" value={`${result.order}`} />
+        <Metric label={text.delaySamples} value={trimFixed(result.delayBudget.totalDelaySamples, 3)} />
+      </div>
+
+      <section className="formula-panel">
+        <h2>{text.delayBudgetTitle}</h2>
+        <div className="summary-strip">
+          <Metric label="T_delay" value={formatSamplingPeriod(result.delayBudget.totalDelaySeconds)} />
+          <Metric label="Delay at f_C" value={formatPhaseDeg(result.delayBudget.phaseAtCrossoverDeg)} />
+          <Metric label={text.digitalPm} value={formatOptionalPhase(result.digitalStabilityMargins.phaseMarginDeg)} />
+          <Metric label={text.delayPm} value={formatOptionalPhase(result.digitalDelayStabilityMargins.phaseMarginDeg)} />
+        </div>
+      </section>
+
+      <section className="formula-panel">
+        <h2>{text.controllerBodeTitle}</h2>
+        <DigitalControllerBodePlot analogResult={analogResult} result={result} />
+      </section>
+
+      <section className="formula-panel">
+        <h2>{text.loopBodeTitle}</h2>
+        <DigitalLoopBodePlot analogResult={analogResult} result={result} locale={locale} />
+      </section>
+
+      <section className="formula-panel">
+        <h2>{text.coefficientTitle}</h2>
+        <div className="digital-coefficient-grid">
+          <div className="component-table">
+            <div className="component-row heading">
+              <span>{text.numerator}</span>
+              <span>Value</span>
+              <span>SIMPLIS</span>
+            </div>
+            {result.bCoefficients.map((coefficient) => (
+              <div className="component-row" key={coefficient.label}>
+                <strong>{coefficient.label}</strong>
+                <span>{formatCoefficient(coefficient.value)}</span>
+                <span>{coefficient.label.toUpperCase()}</span>
+              </div>
+            ))}
+          </div>
+          <div className="component-table">
+            <div className="component-row heading">
+              <span>{text.denominator}</span>
+              <span>Value</span>
+              <span>SIMPLIS</span>
+            </div>
+            {result.aCoefficients.map((coefficient) => (
+              <div className="component-row" key={coefficient.label}>
+                <strong>{coefficient.label}</strong>
+                <span>{formatCoefficient(coefficient.value)}</span>
+                <span>{coefficient.label.toUpperCase()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="formula-panel">
+        <div className="panel-heading">
+          <h2>{text.parameterTitle}</h2>
+          <button type="button" onClick={() => downloadText("simplis_digital_compensator_params.txt", result.parameterText)}>
+            <Download aria-hidden="true" size={16} />
+            {text.downloadParams}
+          </button>
+        </div>
+        <textarea className="parameter-preview" readOnly value={result.parameterText} aria-label="SIMPLIS DLL parameters" />
+      </section>
+
+      <section className="formula-panel">
+        <div className="panel-heading">
+          <h2>{text.codeTitle}</h2>
+          <button type="button" onClick={() => downloadText("digital_compensator_core.c", result.cCode)}>
+            <Download aria-hidden="true" size={16} />
+            {text.downloadCode}
+          </button>
+        </div>
+        <textarea className="script-preview digital-code-preview" readOnly value={result.cCode} aria-label="SIMPLIS C-Code DLL core" />
+      </section>
+
+      <SimplisDllGuide locale={locale} order={result.order} />
+
+      <section className="message-panel">
+        <h2>{locale === "zh" ? "數位控制器注意事項" : "Digital Controller Notes"}</h2>
+        <div className="message-list">
+          {result.messages.map((message, index) => (
+            <p key={`${message.text}-${index}`} className={`message ${message.severity}`}>
+              {message.text}
+            </p>
+          ))}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function formatDigitalFrequency(hertz: number): string {
+  if (!Number.isFinite(hertz)) {
+    return "Invalid";
+  }
+  if (Math.abs(hertz) >= 1e6) {
+    return `${trimFixed(hertz / 1e6, 3)} MHz`;
+  }
+  if (Math.abs(hertz) >= 1e3) {
+    return `${trimFixed(hertz / 1e3, 3)} kHz`;
+  }
+  return `${trimFixed(hertz, 2)} Hz`;
+}
+
+function DigitalControllerBodePlot({
+  analogResult,
+  result,
+}: {
+  analogResult: CompensatorResult;
+  result: DigitalCompensatorResult;
+}) {
+  return (
+    <DigitalBodePlot
+      title="Controller Bode"
+      traces={[
+        { name: "G<sub>c</sub>(s)", points: analogResult.compensatorBode, color: "#d95319" },
+        { name: "G<sub>c</sub>(z)", points: result.digitalBode, color: "#2563eb" },
+        { name: "G<sub>c</sub>(z)z<sup>-N</sup>", points: result.digitalWithDelayBode, color: "#7e2f8e", dash: "dash" },
+      ]}
+      samplingFrequency={result.samplingFrequency}
+    />
+  );
+}
+
+function DigitalLoopBodePlot({
+  analogResult,
+  result,
+  locale,
+}: {
+  analogResult: CompensatorResult;
+  result: DigitalCompensatorResult;
+  locale: Locale;
+}) {
+  const t = translations[locale];
+  return (
+    <div className="digital-loop-panel">
+      <DigitalBodePlot
+        title="Loop Gain Bode"
+        traces={[
+          { name: "T(s)", points: analogResult.loopGainBode, color: "#77ac30" },
+          { name: "T(z)", points: result.digitalLoopGainBode, color: "#2563eb" },
+          { name: "T(z) with delay", points: result.digitalLoopGainWithDelayBode, color: "#7e2f8e", dash: "dash" },
+        ]}
+        samplingFrequency={result.samplingFrequency}
+        showUnityLines
+      />
+      <div className="margin-panel digital-margin-panel">
+        <Metric label={`Analog ${t.phaseMargin}`} value={formatOptionalPhase(analogResult.stabilityMargins.phaseMarginDeg)} />
+        <Metric label={`Digital ${t.phaseMargin}`} value={formatOptionalPhase(result.digitalStabilityMargins.phaseMarginDeg)} />
+        <Metric label={`Delay ${t.phaseMargin}`} value={formatOptionalPhase(result.digitalDelayStabilityMargins.phaseMarginDeg)} />
+        <Metric label={`Delay ${t.gainCrossover}`} value={formatOptionalFrequency(result.digitalDelayStabilityMargins.gainCrossoverFrequency)} />
+      </div>
+    </div>
+  );
+}
+
+function DigitalBodePlot({
+  title,
+  traces,
+  samplingFrequency,
+  showUnityLines = false,
+}: {
+  title: string;
+  traces: Array<{
+    name: string;
+    points: CompensatorBodePoint[];
+    color: string;
+    dash?: "solid" | "dash" | "dot";
+  }>;
+  samplingFrequency: number;
+  showUnityLines?: boolean;
+}) {
+  const points = traces.flatMap((trace) => trace.points);
+  if (points.length < 2) {
+    return <p className="message warning">No digital Bode data is available.</p>;
+  }
+  const magnitudeValues = points.map((point) => point.magnitudeDb).filter(Number.isFinite);
+  const phaseValues = points.map((point) => point.phaseDeg).filter(Number.isFinite);
+  const magMin = Math.min(...magnitudeValues);
+  const magMax = Math.max(...magnitudeValues);
+  const phaseMin = Math.min(...phaseValues);
+  const phaseMax = Math.max(...phaseValues);
+  const data = traces.flatMap((trace) => bodeTraces(trace.name, trace.points, trace.color, trace.dash));
+  const shapes: Partial<Shape>[] = [
+    ...samplingGuideShapes(samplingFrequency),
+    ...(showUnityLines ? unityMarginShapes() : []),
+  ];
+  const layout: Partial<Layout> = {
+    autosize: true,
+    height: 600,
+    margin: { l: 82, r: 34, t: 82, b: 70 },
+    hovermode: "x unified",
+    legend: { orientation: "h", x: 0.02, y: 1.12, yanchor: "bottom" },
+    plot_bgcolor: "#ffffff",
+    paper_bgcolor: "#ffffff",
+    xaxis: {
+      type: "log",
+      domain: [0.08, 1],
+      anchor: "y",
+      matches: "x2",
+      showticklabels: false,
+      showgrid: true,
+      gridcolor: "#d0d0d0",
+      minor: { showgrid: true, gridcolor: "#e5e5e5" },
+    },
+    yaxis: {
+      domain: [0.56, 1],
+      title: { text: "Magnitude (dB)" },
+      range: [magMin - 8, magMax + 10],
+      zeroline: true,
+      zerolinecolor: "#555555",
+      showgrid: true,
+      gridcolor: "#d0d0d0",
+    },
+    xaxis2: {
+      type: "log",
+      domain: [0.08, 1],
+      anchor: "y2",
+      matches: "x",
+      title: { text: "Frequency (Hz)" },
+      showgrid: true,
+      gridcolor: "#d0d0d0",
+      minor: { showgrid: true, gridcolor: "#e5e5e5" },
+    },
+    yaxis2: {
+      domain: [0, 0.44],
+      title: { text: "Phase (deg)" },
+      range: [phaseMin - 20, phaseMax + 20],
+      showgrid: true,
+      gridcolor: "#d0d0d0",
+    },
+    shapes,
+    annotations: samplingGuideAnnotations(samplingFrequency),
+  };
+  const config: Partial<Config> = {
+    responsive: true,
+    scrollZoom: true,
+    displaylogo: false,
+    modeBarButtonsToRemove: ["lasso2d", "select2d"],
+  };
+
+  return (
+    <div className="bode-plot-panel">
+      <h3 className="bode-panel-title">{title}</h3>
+      <Plot className="plotly-bode-chart digital-bode-chart" data={data} layout={layout} config={config} useResizeHandler />
+      <p className="chart-help">Dashed sampling guides mark f_s/20 and f_s/10. Delay changes phase only; magnitude stays unchanged.</p>
+    </div>
+  );
+}
+
+function samplingGuideShapes(samplingFrequency: number): Partial<Shape>[] {
+  return [samplingFrequency / 20, samplingFrequency / 10]
+    .filter((frequency) => Number.isFinite(frequency) && frequency > 0)
+    .map((frequency, index) => ({
+      type: "line",
+      xref: "x",
+      yref: "paper",
+      x0: frequency,
+      x1: frequency,
+      y0: 0,
+      y1: 1,
+      line: { color: index === 0 ? "#64748b" : "#a2142f", width: 1.2, dash: "dot" },
+    }));
+}
+
+function samplingGuideAnnotations(samplingFrequency: number): NonNullable<Layout["annotations"]> {
+  return [
+    { frequency: samplingFrequency / 20, label: "f_s/20" },
+    { frequency: samplingFrequency / 10, label: "f_s/10" },
+  ]
+    .filter((item) => Number.isFinite(item.frequency) && item.frequency > 0)
+    .map((item) => ({
+      x: item.frequency,
+      y: 1,
+      xref: "x",
+      yref: "paper",
+      text: item.label,
+      showarrow: false,
+      yshift: 10,
+      font: { color: "#475569", size: 11 },
+    })) as NonNullable<Layout["annotations"]>;
+}
+
+function unityMarginShapes(): Partial<Shape>[] {
+  return [
+    {
+      type: "line",
+      xref: "paper",
+      yref: "y",
+      x0: 0.08,
+      x1: 1,
+      y0: 0,
+      y1: 0,
+      line: { color: "#555555", width: 1, dash: "dot" },
+    },
+    {
+      type: "line",
+      xref: "paper",
+      yref: "y2",
+      x0: 0.08,
+      x1: 1,
+      y0: -180,
+      y1: -180,
+      line: { color: "#555555", width: 1, dash: "dot" },
+    },
+  ];
+}
+
+function SimplisDllGuide({ locale, order }: { locale: Locale; order: number }) {
+  const isZh = locale === "zh";
+  return (
+    <details className="calculation-steps simplis-dll-guide">
+      <summary>
+        <span>{isZh ? "SIMPLIS DLL 使用說明" : "SIMPLIS DLL Usage Guide"}</span>
+        <small>
+          {isZh
+            ? "建立 C-Code DLL symbol、設定 pins/parameters，並把係數放進 action.c。"
+            : "Create the C-Code DLL symbol, configure pins/parameters, and place coefficients in action.c."}
+        </small>
+      </summary>
+      <div className="step-list">
+        <article className="step-card" data-step="1">
+          <h3>{isZh ? "建立 DLL project" : "Create the DLL project"}</h3>
+          <p>
+            {isZh
+              ? "在 SIMPLIS 使用 C-Code DLL project generator 建立元件，產生 source 後主要修改 project_name_action.c。"
+              : "Use the SIMPLIS C-Code DLL project generator, then edit project_name_action.c after the source files are generated."}
+          </p>
+        </article>
+        <article className="step-card" data-step="2">
+          <h3>{isZh ? "建議 pins" : "Recommended pins"}</h3>
+          <div className="digital-guide-code">
+            <code>Inputs: CLK, RESET, VFB, VREF</code>
+            <code>Outputs: DUTY</code>
+          </div>
+        </article>
+        <article className="step-card" data-step="3">
+          <h3>{isZh ? "建議 parameters" : "Recommended parameters"}</h3>
+          <div className="digital-guide-code">
+            <code>{`B0..B${order}, A1..A${order}`}</code>
+            <code>DUTY_MIN, DUTY_MAX, INITIAL_DUTY, OUTPUT_DELAY</code>
+            <code>ADC_BITS, DPWM_BITS, FS</code>
+          </div>
+        </article>
+        <article className="step-card" data-step="4">
+          <h3>{isZh ? "action.c 更新流程" : "action.c update flow"}</h3>
+          <p>
+            {isZh
+              ? "在 CLK rising edge 讀取 VFB/VREF，計算 e[n]，呼叫 digital_comp_step()，再將 duty ratio 轉成 DPWM code 寫到 DUTY bus。RESET 時清除 e/u history 並載入 INITIAL_DUTY。"
+              : "On each CLK rising edge, read VFB/VREF, calculate e[n], call digital_comp_step(), convert duty ratio to a DPWM code, and write the DUTY bus. On RESET, clear e/u history and load INITIAL_DUTY."}
+          </p>
+        </article>
+        <article className="step-card" data-step="5">
+          <h3>{isZh ? "Type III 注意事項" : "Type III note"}</h3>
+          <p>
+            {isZh
+              ? "完整 Tustin Type III 可能是三階 IIR。若係數表出現 B3/A3，SIMPLIS symbol 也要 expose 對應參數，或把控制器拆成 cascaded sections。"
+              : "A full Tustin Type III can be third order. If B3/A3 appears, expose matching SIMPLIS parameters or split the controller into cascaded sections."}
+          </p>
+        </article>
+      </div>
+    </details>
+  );
+}
+
+function formatSamplingPeriod(seconds: number): string {
+  if (!Number.isFinite(seconds)) {
+    return "Invalid";
+  }
+  if (Math.abs(seconds) < 1e-3) {
+    return `${trimFixed(seconds * 1e6, 3)} us`;
+  }
+  if (Math.abs(seconds) < 1) {
+    return `${trimFixed(seconds * 1e3, 3)} ms`;
+  }
+  return `${trimFixed(seconds, 4)} s`;
+}
+
+function trimFixed(value: number, digits: number): string {
+  return value.toFixed(digits).replace(/\.?0+$/, "");
 }
 
 function LaTeXFormula({ latex }: { latex: string }) {
@@ -3320,7 +3852,12 @@ function CombinedBodePlot({ result, locale }: { result: CompensatorResult; local
   );
 }
 
-function bodeTraces(name: string, points: CompensatorBodePoint[], color: string): Data[] {
+function bodeTraces(
+  name: string,
+  points: CompensatorBodePoint[],
+  color: string,
+  dash: "solid" | "dash" | "dot" = "solid",
+): Data[] {
   const x = points.map((point) => point.frequency);
   const isLoop = name.includes("T(s)");
   return [
@@ -3333,7 +3870,7 @@ function bodeTraces(name: string, points: CompensatorBodePoint[], color: string)
       y: points.map((point) => point.magnitudeDb),
       xaxis: "x",
       yaxis: "y",
-      line: { color, width: isLoop ? 2.4 : 1.7 },
+      line: { color, width: isLoop ? 2.4 : 1.7, dash },
       hovertemplate: `${name}<br>f=%{x:.4g} Hz<br>|G|=%{y:.3f} dB<extra></extra>`,
     },
     {
@@ -3346,7 +3883,7 @@ function bodeTraces(name: string, points: CompensatorBodePoint[], color: string)
       y: points.map((point) => point.phaseDeg),
       xaxis: "x2",
       yaxis: "y2",
-      line: { color, width: isLoop ? 2.4 : 1.7 },
+      line: { color, width: isLoop ? 2.4 : 1.7, dash },
       hovertemplate: `${name}<br>f=%{x:.4g} Hz<br>phase=%{y:.3f} deg<extra></extra>`,
     },
   ] as Data[];

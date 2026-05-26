@@ -1,5 +1,29 @@
 # Completed
 
+## Digital Controller Delay Bode And SIMPLIS Guide
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/lib/digitalCompensatorCalculator.ts`
+  - `src/lib/digitalCompensatorCalculator.test.ts`
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added delay-aware digital controller verification to the compensator workflow. The digital calculator now generates `Gc(z)` and `Gc(z)z^-N` Bode data, digital loop gain with and without delay, delay budget, and delay-aware stability margins. The UI now shows analog-vs-digital controller Bode comparison, digital loop gain comparison, f_s/20 and f_s/10 guide lines, delay margin summary cards, and an expandable SIMPLIS C-Code DLL usage guide covering project setup, pins, parameters, action.c flow, and Type III third-order handling. Validation passed with `npm run lint`, `npx vitest run src/lib/digitalCompensatorCalculator.test.ts src/lib/compensatorCalculator.test.ts`, `npm run build`, and browser checks at `http://127.0.0.1:5176/`.
+
+## Digital Compensator Design Flow
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/lib/digitalCompensatorCalculator.ts`
+  - `src/lib/digitalCompensatorCalculator.test.ts`
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added a first-pass digital controller stage to the existing compensator workflow. The tool now accepts sampling frequency, duty clamp, initial duty, output delay, ADC bits, and DPWM bits, then converts the analog compensator result with Tustin into IIR coefficients, SIMPLIS parameter text, and a downloadable C-Code DLL core function. Type III full Tustin conversion is surfaced as third-order output so users can expose B3/A3 or split into cascaded sections rather than silently losing a pole. Validation passed with `npm run lint`, `npx vitest run src/lib/digitalCompensatorCalculator.test.ts src/lib/compensatorCalculator.test.ts`, `npm run build`, and browser checks at `http://127.0.0.1:5176/`. Full `npm run test` still hits the existing `r2-file-share/test/validation.test.js` Vitest suite-discovery issue.
+
 ## EE Tool sidebar grouping and title refresh
 
 - Completion date: 2026-05-26
