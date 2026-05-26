@@ -1,5 +1,15 @@
 # Completed
 
+## EE Tool sidebar grouping and title refresh
+
+- Completion date: 2026-05-26
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Reorganized the main EE Tool sidebar into 周邊電路計算, SIMetrix 工作流, and 電路分析. Moved MOSFET 接面溫度迭代 under SIMetrix 工作流, refreshed the visible feature titles in Traditional Chinese and English, and widened the desktop sidebar so the new labels fit cleanly. Validation passed with `npm run lint`, `npx vitest run src/lib`, `npm run build`, and browser desktop/mobile layout checks. Full `npm run test` still hits the existing `r2-file-share/test/validation.test.js` Vitest suite-discovery issue.
+
 ## 精簡 SIMetrix 指南並補充 Convergence Dialog 用法
 
 - Completion date: 2026-05-25
