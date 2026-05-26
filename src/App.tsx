@@ -17,6 +17,7 @@ import {
   Play,
   RotateCcw,
   SlidersHorizontal,
+  Thermometer,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -48,6 +49,11 @@ import {
   parseSimetrixNetlist,
 } from "./lib/simetrixScriptGenerator";
 import {
+  MosfetThermalInputs,
+  MosfetThermalResult,
+  calculateMosfetThermalIteration,
+} from "./lib/mosfetThermalIteration";
+import {
   VerilogAModel,
   VerilogAModelId,
   formatVerilogAParameterAssignments,
@@ -74,6 +80,7 @@ type FeatureId =
   | "bootstrap"
   | "compensator"
   | "simetrix"
+  | "mosfet-thermal"
   | "simetrix-guide"
   | "rlc-solver"
   | "verilog-a";
@@ -81,6 +88,38 @@ type FeatureId =
 type UnitOption = {
   label: string;
   factor: number;
+};
+
+type MosfetThermalIterationRow = {
+  id: number;
+  condition: MosfetThermalConditionInputs;
+  switchRows: MosfetThermalRecordedSwitchRow[];
+  globalNextSimulationTemperatureC: number;
+  hottestSwitchRef: string;
+  minimumMarginC: number;
+};
+
+type MosfetThermalConditionInputs = {
+  caseName: string;
+  inputVoltageV: number;
+  outputVoltageV: number;
+  outputPowerW: number;
+};
+
+type MosfetThermalSwitchInput = {
+  id: number;
+  reference: string;
+  role: string;
+  simulationTemperatureC: number;
+  powerLossW: number;
+  rthJunctionCase: number;
+  rthCaseAmbient: number;
+  maxJunctionTemperatureC: number;
+};
+
+type MosfetThermalRecordedSwitchRow = {
+  input: MosfetThermalSwitchInput;
+  result: MosfetThermalResult;
 };
 
 const Plot = createPlotlyComponent(PlotlyBasic);
@@ -106,6 +145,7 @@ const featureIcons: Record<FeatureId | "gate" | "rc" | "loss", LucideIcon> = {
   bootstrap: Calculator,
   compensator: Gauge,
   simetrix: FileCode2,
+  "mosfet-thermal": Thermometer,
   "simetrix-guide": BookOpenText,
   "rlc-solver": CircuitBoard,
   "verilog-a": FileText,
@@ -185,6 +225,10 @@ const translations = {
     simetrixTitle: "開關 Model Sweep 腳本產生器",
     simetrixSubtitle:
       "匯入 SIMetrix netlist，自動偵測 Q/M/S/X 開關候選元件，輸入待比較 model 後產生損耗分析用 .sxscr 腳本。",
+    mosfetThermalEyebrow: "MOSFET 熱設計",
+    mosfetThermalTitle: "L1 Tj 迭代助手",
+    mosfetThermalSubtitle:
+      "輸入 SIMetrix L1 固定溫度模擬量到的平均損耗與熱阻條件，計算估算 Tj、收斂誤差、安全裕度，以及下一輪建議模擬溫度。",
     simetrixGuideEyebrow: "SIMetrix 操作手冊",
     simetrixGuideTitle: "Transient 模擬速度優化",
     simetrixGuideSubtitle:
@@ -253,6 +297,7 @@ const translations = {
       bootstrap: "Bootstrap 電容",
       compensator: "補償器計算",
       simetrix: "SIMetrix 腳本",
+      "mosfet-thermal": "L1 Tj 迭代",
       "simetrix-guide": "SIMetrix 指南",
       "rlc-solver": "RLC 符號求解",
       "verilog-a": "Verilog-A 模型",
@@ -274,6 +319,10 @@ const translations = {
     simetrixTitle: "Switch Model Sweep Script Generator",
     simetrixSubtitle:
       "Import a SIMetrix netlist, detect likely Q/M/S/X switching instances, enter model names, and generate a loss-analysis .sxscr sweep script.",
+    mosfetThermalEyebrow: "MOSFET thermal design",
+    mosfetThermalTitle: "L1 Tj Iteration Helper",
+    mosfetThermalSubtitle:
+      "Enter measured average loss from a fixed-temperature SIMetrix L1 run and thermal path values to estimate Tj, convergence error, margin, and the next simulation temperature.",
     simetrixGuideEyebrow: "SIMetrix guide",
     simetrixGuideTitle: "Transient Simulation Speed Guide",
     simetrixGuideSubtitle:
@@ -342,6 +391,7 @@ const translations = {
       bootstrap: "Bootstrap capacitor",
       compensator: "Compensator calculator",
       simetrix: "SIMetrix script",
+      "mosfet-thermal": "L1 Tj iteration",
       "simetrix-guide": "SIMetrix guide",
       "rlc-solver": "RLC symbolic solver",
       "verilog-a": "Verilog-A models",
@@ -590,6 +640,47 @@ const defaultCompensatorUnits: UnitState = {
   poleFrequency2: "kHz",
 };
 
+const defaultMosfetThermalInputs: MosfetThermalInputs = {
+  ambientTemperatureC: 50,
+  simulationTemperatureC: 50,
+  powerLossW: 3.2,
+  rthJunctionCase: 0.8,
+  rthCaseAmbient: 12,
+  maxJunctionTemperatureC: 150,
+  relaxationFactor: 0.6,
+  toleranceC: 1,
+};
+
+const defaultMosfetThermalSwitchRows: MosfetThermalSwitchInput[] = [
+  {
+    id: 1,
+    reference: "QH1",
+    role: "HS",
+    simulationTemperatureC: 50,
+    powerLossW: 3.2,
+    rthJunctionCase: 0.8,
+    rthCaseAmbient: 12,
+    maxJunctionTemperatureC: 150,
+  },
+  {
+    id: 2,
+    reference: "QL1",
+    role: "LS",
+    simulationTemperatureC: 50,
+    powerLossW: 5.8,
+    rthJunctionCase: 0.8,
+    rthCaseAmbient: 12,
+    maxJunctionTemperatureC: 150,
+  },
+];
+
+const defaultMosfetThermalCondition: MosfetThermalConditionInputs = {
+  caseName: "60V / 12V / 2.5kW",
+  inputVoltageV: 60,
+  outputVoltageV: 12,
+  outputPowerW: 2500,
+};
+
 const sourceLinks = [
   {
     vendor: "TI",
@@ -650,6 +741,13 @@ function getFeatureHeader(feature: FeatureId, locale: Locale) {
       subtitle: t.simetrixGuideSubtitle,
     };
   }
+  if (feature === "mosfet-thermal") {
+    return {
+      eyebrow: t.mosfetThermalEyebrow,
+      title: t.mosfetThermalTitle,
+      subtitle: t.mosfetThermalSubtitle,
+    };
+  }
   return {
     eyebrow: t.simetrixEyebrow,
     title: t.simetrixTitle,
@@ -681,6 +779,16 @@ export function App() {
   const [simetrixSweepMode, setSimetrixSweepMode] = useState<SimetrixSweepMode>("same-model");
   const [simetrixNetlistFileName, setSimetrixNetlistFileName] = useState("design.net");
   const [createSimetrixNetlist, setCreateSimetrixNetlist] = useState(true);
+  const [mosfetThermalInputs, setMosfetThermalInputs] = useState<MosfetThermalInputs>(
+    defaultMosfetThermalInputs,
+  );
+  const [mosfetThermalSwitchRows, setMosfetThermalSwitchRows] = useState<MosfetThermalSwitchInput[]>(
+    defaultMosfetThermalSwitchRows,
+  );
+  const [mosfetThermalCondition, setMosfetThermalCondition] = useState<MosfetThermalConditionInputs>(
+    defaultMosfetThermalCondition,
+  );
+  const [mosfetThermalHistory, setMosfetThermalHistory] = useState<MosfetThermalIterationRow[]>([]);
   const [verilogAModelId, setVerilogAModelId] = useState<VerilogAModelId>("deadtime-generator");
   const activeValues = values[method];
   const activeUnits = units[method];
@@ -689,6 +797,7 @@ export function App() {
   const BootstrapIcon = featureIcons.bootstrap;
   const CompensatorIcon = featureIcons.compensator;
   const SimetrixIcon = featureIcons.simetrix;
+  const MosfetThermalIcon = featureIcons["mosfet-thermal"];
   const SimetrixGuideIcon = featureIcons["simetrix-guide"];
   const RlcSolverIcon = featureIcons["rlc-solver"];
   const VerilogAIcon = featureIcons["verilog-a"];
@@ -788,6 +897,96 @@ export function App() {
     setSimetrixSweepMode("same-model");
     setSimetrixNetlistFileName("design.net");
     setCreateSimetrixNetlist(true);
+  }
+
+  function updateMosfetThermalInput(key: keyof MosfetThermalInputs, value: number) {
+    setMosfetThermalInputs((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateMosfetThermalSwitch<K extends keyof MosfetThermalSwitchInput>(
+    id: number,
+    key: K,
+    value: MosfetThermalSwitchInput[K],
+  ) {
+    setMosfetThermalSwitchRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, [key]: value } : row)),
+    );
+  }
+
+  function addMosfetThermalSwitch() {
+    setMosfetThermalSwitchRows((current) => {
+      const nextId = current.reduce((maxId, row) => Math.max(maxId, row.id), 0) + 1;
+      return [
+        ...current,
+        {
+          id: nextId,
+          reference: `Q${nextId}`,
+          role: "SW",
+          simulationTemperatureC: mosfetThermalInputs.simulationTemperatureC,
+          powerLossW: 0,
+          rthJunctionCase: mosfetThermalInputs.rthJunctionCase,
+          rthCaseAmbient: mosfetThermalInputs.rthCaseAmbient,
+          maxJunctionTemperatureC: mosfetThermalInputs.maxJunctionTemperatureC,
+        },
+      ];
+    });
+  }
+
+  function removeMosfetThermalSwitch(id: number) {
+    setMosfetThermalSwitchRows((current) => current.filter((row) => row.id !== id));
+  }
+
+  function updateMosfetThermalCondition<K extends keyof MosfetThermalConditionInputs>(
+    key: K,
+    value: MosfetThermalConditionInputs[K],
+  ) {
+    setMosfetThermalCondition((current) => ({ ...current, [key]: value }));
+  }
+
+  function resetMosfetThermal() {
+    setMosfetThermalInputs(defaultMosfetThermalInputs);
+    setMosfetThermalSwitchRows(defaultMosfetThermalSwitchRows);
+    setMosfetThermalCondition(defaultMosfetThermalCondition);
+    setMosfetThermalHistory([]);
+  }
+
+  function recordMosfetThermalIteration() {
+    const recordedSwitchRows = mosfetThermalSwitchRows.map((row) => {
+      const result = calculateMosfetThermalIteration(buildSwitchThermalInputs(row, mosfetThermalInputs));
+      return {
+        input: { ...row, simulationTemperatureC: mosfetThermalInputs.simulationTemperatureC },
+        result,
+      };
+    });
+    const validRows = recordedSwitchRows.filter((row) => row.result.status !== "invalid");
+    const globalNextSimulationTemperatureC =
+      validRows.length > 0
+        ? Math.max(...validRows.map((row) => row.result.nextSimulationTemperatureC))
+        : Number.NaN;
+    const hottestRow = validRows.reduce<MosfetThermalRecordedSwitchRow | null>(
+      (current, row) =>
+        !current || row.result.estimatedJunctionTemperatureC > current.result.estimatedJunctionTemperatureC
+          ? row
+          : current,
+      null,
+    );
+    const minimumMarginC =
+      validRows.length > 0 ? Math.min(...validRows.map((row) => row.result.marginC)) : Number.NaN;
+    setMosfetThermalHistory((current) => [
+      ...current,
+      {
+        id: current.length + 1,
+        condition: { ...mosfetThermalCondition },
+        switchRows: recordedSwitchRows,
+        globalNextSimulationTemperatureC,
+        hottestSwitchRef: hottestRow?.input.reference ?? "N/A",
+        minimumMarginC,
+      },
+    ]);
+  }
+
+  function clearMosfetThermalHistory() {
+    setMosfetThermalHistory([]);
   }
 
   function resetMethod() {
@@ -907,6 +1106,14 @@ export function App() {
             {t.features.simetrix}
           </button>
           <button
+            className={feature === "mosfet-thermal" ? "active" : ""}
+            type="button"
+            onClick={() => setFeature("mosfet-thermal")}
+          >
+            <MosfetThermalIcon aria-hidden="true" size={18} />
+            {t.features["mosfet-thermal"]}
+          </button>
+          <button
             className={feature === "simetrix-guide" ? "active" : ""}
             type="button"
             onClick={() => setFeature("simetrix-guide")}
@@ -1022,6 +1229,22 @@ export function App() {
             onNetlistFileNameChange={setSimetrixNetlistFileName}
             onCreateNetlistBeforeRunChange={setCreateSimetrixNetlist}
             onReset={resetSimetrix}
+          />
+        ) : feature === "mosfet-thermal" ? (
+          <MosfetThermalWorkspace
+            locale={locale}
+            inputs={mosfetThermalInputs}
+            switchRows={mosfetThermalSwitchRows}
+            condition={mosfetThermalCondition}
+            history={mosfetThermalHistory}
+            onInputChange={updateMosfetThermalInput}
+            onSwitchChange={updateMosfetThermalSwitch}
+            onAddSwitch={addMosfetThermalSwitch}
+            onRemoveSwitch={removeMosfetThermalSwitch}
+            onConditionChange={updateMosfetThermalCondition}
+            onRecord={recordMosfetThermalIteration}
+            onClearHistory={clearMosfetThermalHistory}
+            onReset={resetMosfetThermal}
           />
         ) : feature === "rlc-solver" ? (
           <RlcSolverWorkspace />
@@ -1527,6 +1750,734 @@ function labelSimetrixKind(kind: SimetrixComponent["kind"]): string {
     return "S / Switch";
   }
   return "X / Subcircuit";
+}
+
+function MosfetThermalWorkspace({
+  locale,
+  inputs,
+  switchRows,
+  condition,
+  history,
+  onInputChange,
+  onSwitchChange,
+  onAddSwitch,
+  onRemoveSwitch,
+  onConditionChange,
+  onRecord,
+  onClearHistory,
+  onReset,
+}: {
+  locale: Locale;
+  inputs: MosfetThermalInputs;
+  switchRows: MosfetThermalSwitchInput[];
+  condition: MosfetThermalConditionInputs;
+  history: MosfetThermalIterationRow[];
+  onInputChange: (key: keyof MosfetThermalInputs, value: number) => void;
+  onSwitchChange: <K extends keyof MosfetThermalSwitchInput>(
+    id: number,
+    key: K,
+    value: MosfetThermalSwitchInput[K],
+  ) => void;
+  onAddSwitch: () => void;
+  onRemoveSwitch: (id: number) => void;
+  onConditionChange: <K extends keyof MosfetThermalConditionInputs>(
+    key: K,
+    value: MosfetThermalConditionInputs[K],
+  ) => void;
+  onRecord: () => void;
+  onClearHistory: () => void;
+  onReset: () => void;
+}) {
+  const switchResults = switchRows.map((row) => ({
+    input: row,
+    result: calculateMosfetThermalIteration(buildSwitchThermalInputs(row, inputs)),
+  }));
+  const validSwitchResults = switchResults.filter((row) => row.result.status !== "invalid");
+  const globalNextSimulationTemperatureC =
+    validSwitchResults.length > 0
+      ? Math.max(...validSwitchResults.map((row) => row.result.nextSimulationTemperatureC))
+      : Number.NaN;
+  const hottestSwitch = validSwitchResults.reduce<MosfetThermalRecordedSwitchRow | null>(
+    (current, row) =>
+      !current || row.result.estimatedJunctionTemperatureC > current.result.estimatedJunctionTemperatureC
+        ? row
+        : current,
+    null,
+  );
+  const minimumMarginC =
+    validSwitchResults.length > 0 ? Math.min(...validSwitchResults.map((row) => row.result.marginC)) : Number.NaN;
+  const text = mosfetThermalText[locale];
+  const outputCurrentA = condition.outputVoltageV > 0 ? condition.outputPowerW / condition.outputVoltageV : Number.NaN;
+
+  return (
+    <section className="workspace mosfet-thermal-workspace">
+      <form className="input-panel mosfet-thermal-input">
+        <div className="panel-heading">
+          <h2>{text.inputsTitle}</h2>
+          <button type="button" onClick={onReset}>
+            <RotateCcw aria-hidden="true" size={16} />
+            {translations[locale].reset}
+          </button>
+        </div>
+
+        <div className="subpanel thermal-condition-panel">
+          <h3>{text.conditionTitle}</h3>
+          <ThermalTextField
+            label={text.caseName}
+            value={condition.caseName}
+            onChange={(value) => onConditionChange("caseName", value)}
+          />
+          <div className="thermal-field-grid">
+            <ThermalNumberField
+              label={text.inputVoltage}
+              suffix="V"
+              value={condition.inputVoltageV}
+              onChange={(value) => onConditionChange("inputVoltageV", value)}
+            />
+            <ThermalNumberField
+              label={text.outputVoltage}
+              suffix="V"
+              value={condition.outputVoltageV}
+              onChange={(value) => onConditionChange("outputVoltageV", value)}
+            />
+            <ThermalNumberField
+              label={text.outputPower}
+              suffix="W"
+              value={condition.outputPowerW}
+              onChange={(value) => onConditionChange("outputPowerW", value)}
+            />
+          </div>
+          <div className="thermal-condition-readout">
+            <span>{text.outputCurrent}</span>
+            <strong>{formatThermalValue(outputCurrentA, "A")}</strong>
+          </div>
+        </div>
+
+        <div className="thermal-field-grid">
+          <ThermalNumberField
+            label={text.ambientTemperature}
+            suffix="degC"
+            value={inputs.ambientTemperatureC}
+            onChange={(value) => onInputChange("ambientTemperatureC", value)}
+          />
+          <ThermalNumberField
+            label={text.simulationTemperature}
+            suffix="degC"
+            value={inputs.simulationTemperatureC}
+            onChange={(value) => onInputChange("simulationTemperatureC", value)}
+          />
+          <ThermalNumberField
+            label={text.rthJunctionCase}
+            suffix="K/W"
+            value={inputs.rthJunctionCase}
+            onChange={(value) => onInputChange("rthJunctionCase", value)}
+          />
+          <ThermalNumberField
+            label={text.rthCaseAmbient}
+            suffix="K/W"
+            value={inputs.rthCaseAmbient}
+            onChange={(value) => onInputChange("rthCaseAmbient", value)}
+          />
+          <ThermalNumberField
+            label={text.maxJunctionTemperature}
+            suffix="degC"
+            value={inputs.maxJunctionTemperatureC}
+            onChange={(value) => onInputChange("maxJunctionTemperatureC", value)}
+          />
+          <ThermalNumberField
+            label={text.relaxationFactor}
+            suffix="x"
+            value={inputs.relaxationFactor}
+            step={0.1}
+            onChange={(value) => onInputChange("relaxationFactor", value)}
+          />
+          <ThermalNumberField
+            label={text.tolerance}
+            suffix="degC"
+            value={inputs.toleranceC}
+            onChange={(value) => onInputChange("toleranceC", value)}
+          />
+        </div>
+
+        <section className="subpanel thermal-switch-input-panel">
+          <div className="panel-heading">
+            <h3>{text.switchListTitle}</h3>
+            <button type="button" onClick={onAddSwitch}>
+              {text.addSwitch}
+            </button>
+          </div>
+          <div className="thermal-switch-list">
+            {switchRows.map((row) => (
+              <div className="thermal-switch-editor" key={row.id}>
+                <div className="thermal-switch-editor-heading">
+                  <strong>{row.reference || text.unnamedSwitch}</strong>
+                  <button type="button" onClick={() => onRemoveSwitch(row.id)} disabled={switchRows.length <= 1}>
+                    {text.removeSwitch}
+                  </button>
+                </div>
+                <ThermalTextField
+                  label={text.switchRef}
+                  value={row.reference}
+                  onChange={(value) => onSwitchChange(row.id, "reference", value)}
+                />
+                <ThermalTextField
+                  label={text.switchRole}
+                  value={row.role}
+                  onChange={(value) => onSwitchChange(row.id, "role", value)}
+                />
+                <ThermalNumberField
+                  label={text.switchPowerLoss}
+                  suffix="W"
+                  value={row.powerLossW}
+                  onChange={(value) => onSwitchChange(row.id, "powerLossW", value)}
+                />
+                <ThermalNumberField
+                  label={text.switchRthJc}
+                  suffix="K/W"
+                  value={row.rthJunctionCase}
+                  onChange={(value) => onSwitchChange(row.id, "rthJunctionCase", value)}
+                />
+                <ThermalNumberField
+                  label={text.switchRthCa}
+                  suffix="K/W"
+                  value={row.rthCaseAmbient}
+                  onChange={(value) => onSwitchChange(row.id, "rthCaseAmbient", value)}
+                />
+                <ThermalNumberField
+                  label={text.switchTjMax}
+                  suffix="degC"
+                  value={row.maxJunctionTemperatureC}
+                  onChange={(value) => onSwitchChange(row.id, "maxJunctionTemperatureC", value)}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="analysis-actions">
+          <button className="run-analysis" type="button" onClick={onRecord}>
+            <Play aria-hidden="true" size={17} />
+            {text.recordButton}
+          </button>
+        </div>
+      </form>
+
+      <section className="result-panel">
+        <div className="summary-strip thermal-summary">
+          <Metric label={text.switchCount} value={`${switchRows.length}`} />
+          <Metric label={text.hottestSwitch} value={hottestSwitch?.input.reference ?? "N/A"} />
+          <Metric label={text.globalNextTemperature} value={formatThermalValue(globalNextSimulationTemperatureC, "degC")} />
+          <Metric label={text.minMargin} value={formatSignedThermalValue(minimumMarginC, "degC")} />
+        </div>
+
+        <ThermalGlobalStatusPanel locale={locale} rows={switchResults} />
+
+        <section className="formula-panel thermal-next-panel">
+          <div className="panel-heading">
+            <h2>{text.nextTitle}</h2>
+          </div>
+          <div className="next-temperature">
+            <span>{text.nextTemperature}</span>
+            <strong>{formatThermalValue(globalNextSimulationTemperatureC, "degC")}</strong>
+          </div>
+          <div className="thermal-equation-grid">
+            <code>Tj = Tamb + Ploss x (Rth_jc + Rth_ca)</code>
+            <code>Tnext = Tsim + alpha x (Tj - Tsim)</code>
+          </div>
+        </section>
+
+        <section className="formula-panel">
+          <div className="panel-heading">
+            <h2>{text.checkTitle}</h2>
+          </div>
+          <div className="thermal-check-list">
+            <ThermalCheck label={text.lossInput} value={formatThermalValue(sumSwitchLoss(switchRows), "W")} />
+            <ThermalCheck
+              label={text.distanceToConvergence}
+              value={formatThermalValue(maxSwitchAbsError(switchResults), "degC")}
+            />
+            <ThermalCheck
+              label={text.distanceToLimit}
+              value={formatSignedThermalValue(minimumMarginC, "degC")}
+            />
+          </div>
+        </section>
+
+        <section className="formula-panel thermal-history-panel">
+          <div className="panel-heading">
+            <h2>{text.currentSwitchResultsTitle}</h2>
+          </div>
+          <div className="thermal-table-scroll">
+            <table className="thermal-iteration-table switch-detail-table">
+              <thead>
+                <tr>
+                  <th>{text.switchRef}</th>
+                  <th>{text.switchRole}</th>
+                  <th>Tsim</th>
+                  <th>Pavg</th>
+                  <th>Rth total</th>
+                  <th>Tj_raw</th>
+                  <th>Tsim_next</th>
+                  <th>Margin</th>
+                  <th>{text.statusColumn}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {switchResults.map((row) => (
+                  <tr key={row.input.id}>
+                    <td>{row.input.reference || "-"}</td>
+                    <td>{row.input.role || "-"}</td>
+                    <td>{formatThermalValue(inputs.simulationTemperatureC, "degC")}</td>
+                    <td>{formatThermalValue(row.input.powerLossW, "W")}</td>
+                    <td>{formatThermalValue(row.result.rthTotal, "K/W")}</td>
+                    <td>{formatThermalValue(row.result.estimatedJunctionTemperatureC, "degC")}</td>
+                    <td>{formatThermalValue(row.result.nextSimulationTemperatureC, "degC")}</td>
+                    <td>{formatSignedThermalValue(row.result.marginC, "degC")}</td>
+                    <td>{text.statusLabels[row.result.status]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="formula-panel thermal-history-panel">
+          <div className="panel-heading">
+            <h2>{text.historyTitle}</h2>
+            <button type="button" onClick={onClearHistory} disabled={history.length === 0}>
+              <RotateCcw aria-hidden="true" size={16} />
+              {text.clearHistory}
+            </button>
+          </div>
+          {history.length > 0 ? (
+            <div className="thermal-table-scroll">
+              <table className="thermal-iteration-table">
+                <thead>
+                  <tr>
+                    <th>Iter</th>
+                    <th>{text.caseColumn}</th>
+                    <th>Vin</th>
+                    <th>Vout</th>
+                    <th>Pout</th>
+                    <th>Iout</th>
+                    <th>{text.hottestSwitch}</th>
+                    <th>{text.globalNextTemperature}</th>
+                    <th>{text.minMargin}</th>
+                    <th>{text.statusColumn}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((row, index) => (
+                    <tr key={`${row.id}-${index}`}>
+                      <td>{index + 1}</td>
+                      <td>{row.condition.caseName || "-"}</td>
+                      <td>{formatThermalValue(row.condition.inputVoltageV, "V")}</td>
+                      <td>{formatThermalValue(row.condition.outputVoltageV, "V")}</td>
+                      <td>{formatThermalValue(row.condition.outputPowerW, "W")}</td>
+                      <td>{formatThermalValue(calculateConditionOutputCurrent(row.condition), "A")}</td>
+                      <td>{row.hottestSwitchRef}</td>
+                      <td>{formatThermalValue(row.globalNextSimulationTemperatureC, "degC")}</td>
+                      <td>{formatSignedThermalValue(row.minimumMarginC, "degC")}</td>
+                      <td>{summarizeRecordedSwitchStatus(row, text.statusLabels)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="message info">{text.emptyHistory}</p>
+          )}
+        </section>
+
+        {history.length > 0 && (
+          <section className="formula-panel thermal-history-panel">
+            <div className="panel-heading">
+              <h2>{text.switchDetailTitle}</h2>
+            </div>
+            <div className="thermal-table-scroll">
+              <table className="thermal-iteration-table switch-detail-table">
+                <thead>
+                  <tr>
+                    <th>Iter</th>
+                    <th>{text.switchRef}</th>
+                    <th>{text.switchRole}</th>
+                    <th>Tsim</th>
+                    <th>Pavg</th>
+                    <th>Rth total</th>
+                    <th>Tj_raw</th>
+                    <th>Tsim_next</th>
+                    <th>Margin</th>
+                    <th>{text.statusColumn}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.flatMap((row, index) =>
+                    row.switchRows.map((switchRow) => (
+                      <tr key={`${row.id}-${switchRow.input.id}`}>
+                        <td>{index + 1}</td>
+                        <td>{switchRow.input.reference || "-"}</td>
+                        <td>{switchRow.input.role || "-"}</td>
+                        <td>{formatThermalValue(switchRow.input.simulationTemperatureC, "degC")}</td>
+                        <td>{formatThermalValue(switchRow.input.powerLossW, "W")}</td>
+                        <td>{formatThermalValue(switchRow.result.rthTotal, "K/W")}</td>
+                        <td>{formatThermalValue(switchRow.result.estimatedJunctionTemperatureC, "degC")}</td>
+                        <td>{formatThermalValue(switchRow.result.nextSimulationTemperatureC, "degC")}</td>
+                        <td>{formatSignedThermalValue(switchRow.result.marginC, "degC")}</td>
+                        <td>{text.statusLabels[switchRow.result.status]}</td>
+                      </tr>
+                    )),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+      </section>
+    </section>
+  );
+}
+
+function ThermalNumberField({
+  label,
+  suffix,
+  value,
+  step = 0.1,
+  onChange,
+}: {
+  label: string;
+  suffix: string;
+  value: number;
+  step?: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="thermal-number-field">
+      <span>{label}</span>
+      <div>
+        <input
+          type="number"
+          step={step}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+        <small>{suffix}</small>
+      </div>
+    </label>
+  );
+}
+
+function ThermalTextField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="thermal-text-field">
+      <span>{label}</span>
+      <input value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function ThermalGlobalStatusPanel({
+  locale,
+  rows,
+}: {
+  locale: Locale;
+  rows: MosfetThermalRecordedSwitchRow[];
+}) {
+  const text = mosfetThermalText[locale];
+  const hasInvalid = rows.some((row) => row.result.status === "invalid");
+  const hasOverLimit = rows.some((row) => row.result.status === "over-limit");
+  const allConverged = rows.length > 0 && rows.every((row) => row.result.status === "converged");
+  const nearOnly = rows.length > 0 && rows.every((row) => row.result.status === "converged" || row.result.status === "near");
+  const statusClass = hasInvalid || hasOverLimit ? "danger" : allConverged ? "ok" : "warning";
+  const heading = hasInvalid
+    ? text.globalStatusInvalid
+    : hasOverLimit
+      ? text.globalStatusOverLimit
+      : allConverged
+        ? text.globalStatusConverged
+        : nearOnly
+          ? text.globalStatusNear
+          : text.globalStatusIterate;
+  const message = hasInvalid
+    ? text.globalMessageInvalid
+    : hasOverLimit
+      ? text.globalMessageOverLimit
+      : allConverged
+        ? text.globalMessageConverged
+        : text.globalMessageIterate;
+
+  return (
+    <section className={`status ${statusClass}`}>
+      <strong>{heading}</strong>
+      <ul>
+        <li>{message}</li>
+      </ul>
+    </section>
+  );
+}
+
+function ThermalCheck({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="thermal-check">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+const mosfetThermalText = {
+  zh: {
+    inputsTitle: "本輪 L1 模擬資料",
+    conditionTitle: "操作條件紀錄",
+    caseName: "條件名稱",
+    inputVoltage: "輸入電壓 Vin",
+    outputVoltage: "輸出電壓 Vout",
+    outputPower: "輸出功率 Pout",
+    outputCurrent: "換算輸出電流 Iout",
+    switchListTitle: "開關損耗清單",
+    addSwitch: "新增開關",
+    removeSwitch: "移除",
+    unnamedSwitch: "未命名開關",
+    switchRef: "開關 Ref",
+    switchRole: "角色",
+    switchPowerLoss: "量測平均損耗 Pavg",
+    switchRthJc: "Rth junction-to-case",
+    switchRthCa: "Rth case-to-ambient",
+    switchTjMax: "Tj 上限",
+    switchCount: "開關數",
+    hottestSwitch: "最熱開關",
+    globalNextTemperature: "下一輪 global Tsim",
+    minMargin: "最小 margin",
+    currentSwitchResultsTitle: "本輪各開關結果",
+    switchDetailTitle: "歷史開關明細",
+    ambientTemperature: "環境溫度 Tamb",
+    simulationTemperature: "SIMetrix 設定溫度 Tsim",
+    rthJunctionCase: "Rth junction-to-case",
+    rthCaseAmbient: "Rth case-to-ambient",
+    maxJunctionTemperature: "Tj 上限",
+    relaxationFactor: "建議步進係數 alpha",
+    tolerance: "收斂容許誤差",
+    errorMetric: "Tj - Tsim",
+    marginMetric: "Tj margin",
+    nextTitle: "下一輪建議",
+    nextTemperature: "請在下一輪 L1 模擬嘗試",
+    checkTitle: "距離目標",
+    lossInput: "本輪總開關損耗",
+    distanceToConvergence: "距離收斂目標",
+    distanceToLimit: "距離 Tj 上限",
+    recordButton: "加入本輪計算",
+    historyTitle: "迭代紀錄",
+    clearHistory: "清除紀錄",
+    emptyHistory: "按下加入本輪計算後，這裡會保留每次 L1 損耗迭代結果。",
+    caseColumn: "條件",
+    statusColumn: "狀態",
+    globalStatusInvalid: "輸入需要修正",
+    globalStatusOverLimit: "有開關超過 Tj 上限",
+    globalStatusConverged: "所有開關已收斂",
+    globalStatusNear: "接近收斂",
+    globalStatusIterate: "需要下一輪",
+    globalMessageInvalid: "請先修正開關清單中的無效數值。",
+    globalMessageOverLimit: "至少一顆開關的估算 Tj 已超過上限；接受此工作點前，需要降低損耗或改善散熱。",
+    globalMessageConverged: "所有開關都已在容許誤差內；可將本輪 Tj 視為 L1 穩態估算。",
+    globalMessageIterate: "策略 A 使用最熱開關的建議值；下一輪 SIMetrix global 溫度請設為上方數值。",
+    statusLabels: {
+      converged: "已收斂",
+      near: "接近收斂",
+      iterate: "需要下一輪",
+      "over-limit": "超過 Tj 上限",
+      invalid: "輸入需要修正",
+    },
+  },
+  en: {
+    inputsTitle: "Current L1 Run Data",
+    conditionTitle: "Operating Condition",
+    caseName: "Case name",
+    inputVoltage: "Input voltage Vin",
+    outputVoltage: "Output voltage Vout",
+    outputPower: "Output power Pout",
+    outputCurrent: "Calculated output current Iout",
+    switchListTitle: "Switch Loss List",
+    addSwitch: "Add switch",
+    removeSwitch: "Remove",
+    unnamedSwitch: "Unnamed switch",
+    switchRef: "Switch ref",
+    switchRole: "Role",
+    switchPowerLoss: "Measured average loss Pavg",
+    switchRthJc: "Rth junction-to-case",
+    switchRthCa: "Rth case-to-ambient",
+    switchTjMax: "Tj limit",
+    switchCount: "Switch count",
+    hottestSwitch: "Hottest switch",
+    globalNextTemperature: "Next global Tsim",
+    minMargin: "Minimum margin",
+    currentSwitchResultsTitle: "Current Switch Results",
+    switchDetailTitle: "History Switch Details",
+    ambientTemperature: "Ambient temperature Tamb",
+    simulationTemperature: "SIMetrix temperature Tsim",
+    rthJunctionCase: "Rth junction-to-case",
+    rthCaseAmbient: "Rth case-to-ambient",
+    maxJunctionTemperature: "Tj limit",
+    relaxationFactor: "Suggestion factor alpha",
+    tolerance: "Convergence tolerance",
+    errorMetric: "Tj - Tsim",
+    marginMetric: "Tj margin",
+    nextTitle: "Next Suggestion",
+    nextTemperature: "Try this temperature in the next L1 run",
+    checkTitle: "Distance To Target",
+    lossInput: "Total switch loss",
+    distanceToConvergence: "Distance to convergence",
+    distanceToLimit: "Distance to Tj limit",
+    recordButton: "Add iteration",
+    historyTitle: "Iteration History",
+    clearHistory: "Clear history",
+    emptyHistory: "After adding an iteration, each L1 loss calculation will be kept here.",
+    caseColumn: "Case",
+    statusColumn: "Status",
+    globalStatusInvalid: "Fix inputs",
+    globalStatusOverLimit: "A switch is over Tj limit",
+    globalStatusConverged: "All switches converged",
+    globalStatusNear: "Nearly converged",
+    globalStatusIterate: "Next run needed",
+    globalMessageInvalid: "Fix invalid values in the switch list first.",
+    globalMessageOverLimit: "At least one switch exceeds its Tj limit. Reduce loss or improve cooling before accepting this operating point.",
+    globalMessageConverged: "Every switch is within the convergence tolerance; this is a steady-state L1 Tj estimate.",
+    globalMessageIterate: "Strategy A uses the hottest switch suggestion. Set the next SIMetrix global temperature to the value above.",
+    statusLabels: {
+      converged: "Converged",
+      near: "Nearly converged",
+      iterate: "Next run needed",
+      "over-limit": "Over Tj limit",
+      invalid: "Fix inputs",
+    },
+  },
+} satisfies Record<Locale, {
+  inputsTitle: string;
+  conditionTitle: string;
+  caseName: string;
+  inputVoltage: string;
+  outputVoltage: string;
+  outputPower: string;
+  outputCurrent: string;
+  switchListTitle: string;
+  addSwitch: string;
+  removeSwitch: string;
+  unnamedSwitch: string;
+  switchRef: string;
+  switchRole: string;
+  switchPowerLoss: string;
+  switchRthJc: string;
+  switchRthCa: string;
+  switchTjMax: string;
+  switchCount: string;
+  hottestSwitch: string;
+  globalNextTemperature: string;
+  minMargin: string;
+  currentSwitchResultsTitle: string;
+  switchDetailTitle: string;
+  ambientTemperature: string;
+  simulationTemperature: string;
+  rthJunctionCase: string;
+  rthCaseAmbient: string;
+  maxJunctionTemperature: string;
+  relaxationFactor: string;
+  tolerance: string;
+  errorMetric: string;
+  marginMetric: string;
+  nextTitle: string;
+  nextTemperature: string;
+  checkTitle: string;
+  lossInput: string;
+  distanceToConvergence: string;
+  distanceToLimit: string;
+  recordButton: string;
+  historyTitle: string;
+  clearHistory: string;
+  emptyHistory: string;
+  caseColumn: string;
+  statusColumn: string;
+  globalStatusInvalid: string;
+  globalStatusOverLimit: string;
+  globalStatusConverged: string;
+  globalStatusNear: string;
+  globalStatusIterate: string;
+  globalMessageInvalid: string;
+  globalMessageOverLimit: string;
+  globalMessageConverged: string;
+  globalMessageIterate: string;
+  statusLabels: Record<MosfetThermalResult["status"], string>;
+}>;
+
+function formatThermalValue(value: number, unit: string): string {
+  if (!Number.isFinite(value)) {
+    return "N/A";
+  }
+  return `${Number(value.toFixed(2))} ${unit}`;
+}
+
+function formatSignedThermalValue(value: number, unit: string): string {
+  if (!Number.isFinite(value)) {
+    return "N/A";
+  }
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${Number(value.toFixed(2))} ${unit}`;
+}
+
+function buildSwitchThermalInputs(
+  row: MosfetThermalSwitchInput,
+  sharedInputs: MosfetThermalInputs,
+): MosfetThermalInputs {
+  return {
+    ambientTemperatureC: sharedInputs.ambientTemperatureC,
+    simulationTemperatureC: sharedInputs.simulationTemperatureC,
+    powerLossW: row.powerLossW,
+    rthJunctionCase: row.rthJunctionCase,
+    rthCaseAmbient: row.rthCaseAmbient,
+    maxJunctionTemperatureC: row.maxJunctionTemperatureC,
+    relaxationFactor: sharedInputs.relaxationFactor,
+    toleranceC: sharedInputs.toleranceC,
+  };
+}
+
+function maxSwitchAbsError(rows: MosfetThermalRecordedSwitchRow[]): number {
+  const values = rows
+    .map((row) => row.result.absErrorC)
+    .filter((value) => Number.isFinite(value));
+  return values.length > 0 ? Math.max(...values) : Number.NaN;
+}
+
+function sumSwitchLoss(rows: MosfetThermalSwitchInput[]): number {
+  return rows.reduce((sum, row) => sum + (Number.isFinite(row.powerLossW) ? row.powerLossW : 0), 0);
+}
+
+function summarizeRecordedSwitchStatus(
+  row: MosfetThermalIterationRow,
+  labels: Record<MosfetThermalResult["status"], string>,
+): string {
+  const statuses = row.switchRows.map((switchRow) => switchRow.result.status);
+  if (statuses.includes("invalid")) {
+    return labels.invalid;
+  }
+  if (statuses.includes("over-limit")) {
+    return labels["over-limit"];
+  }
+  if (statuses.every((status) => status === "converged")) {
+    return labels.converged;
+  }
+  if (statuses.every((status) => status === "converged" || status === "near")) {
+    return labels.near;
+  }
+  return labels.iterate;
+}
+
+function calculateConditionOutputCurrent(condition: MosfetThermalConditionInputs): number {
+  return condition.outputVoltageV > 0 ? condition.outputPowerW / condition.outputVoltageV : Number.NaN;
 }
 
 function BootstrapWorkspace({

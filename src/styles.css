@@ -284,6 +284,10 @@ h1 {
   grid-template-columns: minmax(360px, 520px) minmax(0, 1fr);
 }
 
+.workspace.mosfet-thermal-workspace {
+  grid-template-columns: minmax(340px, 470px) minmax(0, 1fr);
+}
+
 .workspace.rlc-workspace {
   grid-template-columns: minmax(360px, 540px) minmax(0, 1fr);
 }
@@ -619,6 +623,138 @@ h1 {
   font-weight: 750;
 }
 
+.thermal-field-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.thermal-number-field {
+  display: grid;
+  gap: 6px;
+  color: #394758;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.thermal-number-field div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.thermal-number-field input {
+  width: 100%;
+  min-height: 40px;
+  border: 0;
+  padding: 8px 10px;
+  color: #111827;
+  background: transparent;
+}
+
+.thermal-number-field small {
+  display: grid;
+  min-height: 40px;
+  place-items: center;
+  border-left: 1px solid var(--line);
+  background: var(--surface-strong);
+  color: #536172;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.thermal-text-field {
+  display: grid;
+  gap: 6px;
+  color: #394758;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.thermal-text-field input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #111827;
+  background: var(--surface);
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.thermal-condition-panel .thermal-field-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.thermal-condition-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface-soft);
+}
+
+.thermal-condition-readout span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.thermal-condition-readout strong {
+  color: var(--ink);
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-size: 1.12rem;
+}
+
+.thermal-switch-input-panel .panel-heading {
+  margin-bottom: 0;
+}
+
+.thermal-switch-list {
+  display: grid;
+  gap: 12px;
+}
+
+.thermal-switch-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface-soft);
+}
+
+.thermal-switch-editor-heading {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.thermal-switch-editor-heading strong {
+  color: var(--ink);
+}
+
+.thermal-switch-editor-heading button,
+.thermal-switch-input-panel .panel-heading button {
+  min-height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: var(--surface);
+  color: #394758;
+  font-weight: 800;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
@@ -707,6 +843,162 @@ textarea:focus {
 .status.warning {
   background: #fff7df;
   color: #8a5a00;
+}
+
+.status strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.status ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.thermal-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.thermal-summary .metric {
+  min-height: 118px;
+}
+
+.thermal-summary .metric strong {
+  font-size: clamp(1rem, 1.35vw, 1.16rem);
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.thermal-next-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.next-temperature {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+.next-temperature span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.next-temperature strong {
+  color: var(--accent-strong);
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+}
+
+.thermal-equation-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.thermal-equation-grid code {
+  display: block;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  background: #101827;
+  color: #d5f5ef;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 0.86rem;
+}
+
+.thermal-check-list {
+  display: grid;
+  gap: 10px;
+}
+
+.thermal-check {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+
+.thermal-check:last-child {
+  border-bottom: 0;
+}
+
+.thermal-check span {
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.thermal-check strong {
+  color: var(--ink);
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-size: 1.12rem;
+}
+
+.thermal-history-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.thermal-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.thermal-iteration-table {
+  width: 100%;
+  min-width: 1120px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.switch-detail-table {
+  min-width: 980px;
+}
+
+.thermal-iteration-table th,
+.thermal-iteration-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 11px 12px;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.thermal-iteration-table th {
+  background: #eefdfa;
+  color: #0f766e;
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.thermal-iteration-table td {
+  color: #263346;
+  font-family: "Cambria Math", "Times New Roman", serif;
+  font-weight: 700;
+}
+
+.thermal-iteration-table td:last-child {
+  font-family:
+    Inter, "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+  font-size: 0.84rem;
+}
+
+.thermal-iteration-table tr:last-child td {
+  border-bottom: 0;
 }
 
 .pending-panel {
@@ -1600,6 +1892,18 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .workspace.mosfet-thermal-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .thermal-condition-panel .thermal-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .thermal-switch-editor {
+    grid-template-columns: 1fr;
+  }
+
   .input-panel,
   .reference-panel {
     position: static;
@@ -1617,6 +1921,7 @@ textarea:focus {
   .zero-pole-list,
   .equation-readout,
   .margin-panel,
+  .thermal-summary,
   .measurement-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1642,9 +1947,15 @@ textarea:focus {
   .equation-readout,
   .margin-panel,
   .measurement-panel,
+  .thermal-summary,
   .component-row,
   .formula-row {
     grid-template-columns: 1fr;
+  }
+
+  .next-temperature,
+  .thermal-check {
+    display: grid;
   }
 
   .simetrix-guide-document {
