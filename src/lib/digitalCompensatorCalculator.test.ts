@@ -102,6 +102,137 @@ describe("digital compensator Tustin conversion", () => {
     );
   });
 
+  it("adds duty-dependent PWM carrier delay to the delay budget", () => {
+    const analog = calculateCompensator({
+      bodePoints: parseBodeCsv(csv).points,
+      compensatorType: "type2",
+      designMode: "auto",
+      crossoverFrequency: 1000,
+      targetPhaseMargin: 50,
+      r1: 10_000,
+    });
+
+    const digital = calculateDigitalCompensator({
+      analogResult: analog,
+      samplingFrequency: 100_000,
+      pwmFrequency: 100_000,
+      dutyMin: 0.02,
+      dutyMax: 0.95,
+      initialDuty: 0.25,
+      outputDelaySamples: 1,
+      computationDelaySamples: 0.5,
+      pwmCarrier: "trailing-edge",
+      adcBits: 12,
+      dpwmBits: 10,
+      method: "tustin",
+    });
+
+    expect(digital.delayBudget.outputDelaySeconds).toBeCloseTo(10e-6, 12);
+    expect(digital.delayBudget.computationDelaySeconds).toBeCloseTo(5e-6, 12);
+    expect(digital.delayBudget.pwmDelaySeconds).toBeCloseTo(2.5e-6, 12);
+    expect(digital.delayBudget.totalDelaySeconds).toBeCloseTo(17.5e-6, 12);
+    expect(digital.delayBudget.phaseAtCrossoverDeg).toBeCloseTo(-6.3, 8);
+  });
+
+  it("applies symmetric PWM carrier attenuation", () => {
+    const analog = calculateCompensator({
+      bodePoints: parseBodeCsv(csv).points,
+      compensatorType: "type2",
+      designMode: "auto",
+      crossoverFrequency: 10_000,
+      targetPhaseMargin: 50,
+      r1: 10_000,
+    });
+
+    const digital = calculateDigitalCompensator({
+      analogResult: analog,
+      samplingFrequency: 100_000,
+      pwmFrequency: 100_000,
+      dutyMin: 0.02,
+      dutyMax: 0.95,
+      initialDuty: 0.5,
+      outputDelaySamples: 0,
+      computationDelaySamples: 0,
+      pwmCarrier: "symmetric",
+      adcBits: 12,
+      dpwmBits: 10,
+      method: "tustin",
+    });
+
+    const noDelay = nearestBodePoint(digital.digitalBode, 10_000);
+    const withPwm = nearestBodePoint(digital.digitalWithDelayBode, 10_000);
+    const expectedAttenuationDb = 20 * Math.log10(Math.cos(Math.PI * 10_000 / 100_000));
+
+    expect(digital.delayBudget.pwmDelaySeconds).toBeCloseTo(5e-6, 12);
+    expect(digital.delayBudget.pwmMagnitudeAtCrossoverDb).toBeCloseTo(expectedAttenuationDb, 8);
+    expect(withPwm.magnitudeDb - noDelay.magnitudeDb).toBeCloseTo(expectedAttenuationDb, 1);
+  });
+
+  it("adds low-frequency hold delay when duty updates every N PWM cycles", () => {
+    const analog = calculateCompensator({
+      bodePoints: parseBodeCsv(csv).points,
+      compensatorType: "type2",
+      designMode: "auto",
+      crossoverFrequency: 1000,
+      targetPhaseMargin: 50,
+      r1: 10_000,
+    });
+
+    const digital = calculateDigitalCompensator({
+      analogResult: analog,
+      samplingFrequency: 25_000,
+      pwmFrequency: 100_000,
+      pwmUpdateCycles: 4,
+      dutyMin: 0.02,
+      dutyMax: 0.95,
+      initialDuty: 0.25,
+      outputDelaySamples: 0,
+      computationDelaySamples: 0,
+      pwmCarrier: "none",
+      adcBits: 12,
+      dpwmBits: 10,
+      method: "tustin",
+    });
+
+    expect(digital.delayBudget.updateAveragingDelaySeconds).toBeCloseTo(15e-6, 12);
+    expect(digital.delayBudget.totalDelaySeconds).toBeCloseTo(15e-6, 12);
+    expect(digital.delayBudget.phaseAtCrossoverDeg).toBeCloseTo(-5.4, 8);
+    expect(digital.parameterText).toContain("PWM_UPDATE_CYCLES = 4");
+  });
+
+  it("reports PWM lower-sideband aliasing diagnostics", () => {
+    const analog = calculateCompensator({
+      bodePoints: parseBodeCsv(csv).points,
+      compensatorType: "type2",
+      designMode: "auto",
+      crossoverFrequency: 1000,
+      targetPhaseMargin: 50,
+      r1: 10_000,
+    });
+
+    const digital = calculateDigitalCompensator({
+      analogResult: analog,
+      samplingFrequency: 100_000,
+      pwmFrequency: 100_000,
+      dutyMin: 0.02,
+      dutyMax: 0.95,
+      initialDuty: 0.25,
+      outputDelaySamples: 0,
+      computationDelaySamples: 0,
+      pwmCarrier: "none",
+      adcBits: 12,
+      dpwmBits: 10,
+      method: "tustin",
+    });
+
+    const crossoverRow = digital.aliasingDiagnostics.rows.find((row) => row.modulationFrequency === 1000);
+
+    expect(digital.aliasingDiagnostics.nyquistFrequency).toBeCloseTo(50_000, 8);
+    expect(crossoverRow?.lowerSidebandFrequency).toBeCloseTo(99_000, 8);
+    expect(crossoverRow?.aliasFrequency).toBeCloseTo(1000, 8);
+    expect(crossoverRow?.aliasToDirectRatioDb).toBeLessThan(0);
+  });
+
   it("warns that full Type III Tustin conversion needs third-order coefficients", () => {
     const analog = calculateCompensator({
       bodePoints: parseBodeCsv(csv).points,

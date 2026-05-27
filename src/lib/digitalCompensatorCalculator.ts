@@ -4,14 +4,19 @@ import { interpolateBode } from "./compensatorCalculator";
 import { formatFrequency, formatGainDb, formatPhaseDeg } from "./units";
 
 export type DigitalCompensatorMethod = "tustin";
+export type PwmCarrierMode = "none" | "trailing-edge" | "leading-edge" | "symmetric";
 
 export type DigitalCompensatorInputs = {
   analogResult: CompensatorResult;
   samplingFrequency: number;
+  pwmFrequency?: number;
+  pwmUpdateCycles?: number;
   dutyMin: number;
   dutyMax: number;
   initialDuty: number;
   outputDelaySamples: number;
+  computationDelaySamples?: number;
+  pwmCarrier?: PwmCarrierMode;
   adcBits: number;
   dpwmBits: number;
   method: DigitalCompensatorMethod;
@@ -20,6 +25,16 @@ export type DigitalCompensatorInputs = {
 export type DigitalIirCoefficient = {
   label: string;
   value: number;
+};
+
+export type DigitalAliasingDiagnostic = {
+  modulationFrequency: number;
+  lowerSidebandFrequency: number;
+  aliasFrequency: number;
+  directGainDb: number;
+  sidebandGainDb: number;
+  aliasToDirectRatioDb: number;
+  severity: "ok" | "warning" | "danger";
 };
 
 export type DigitalCompensatorResult = {
@@ -41,8 +56,30 @@ export type DigitalCompensatorResult = {
     totalDelaySeconds: number;
     totalDelaySamples: number;
     phaseAtCrossoverDeg: number;
+    computationDelaySeconds: number;
+    computationDelaySamples: number;
+    outputDelaySeconds: number;
+    outputDelaySamples: number;
+    pwmDelaySeconds: number;
+    pwmDelaySamples: number;
+    updateAveragingDelaySeconds: number;
+    updateAveragingDelaySamples: number;
+    pwmMagnitudeAtCrossoverDb: number;
+    components: Array<{
+      label: string;
+      seconds: number;
+      samples: number;
+    }>;
   };
   estimatedDelayPhaseDeg: number;
+  pwmFrequency: number;
+  pwmUpdateCycles: number;
+  pwmCarrier: PwmCarrierMode;
+  aliasingDiagnostics: {
+    nyquistFrequency: number;
+    updateFrequency: number;
+    rows: DigitalAliasingDiagnostic[];
+  };
   dutyMin: number;
   dutyMax: number;
   initialDuty: number;
@@ -59,6 +96,12 @@ type Polynomial = number[];
 export function calculateDigitalCompensator(input: DigitalCompensatorInputs): DigitalCompensatorResult {
   const messages: Message[] = [];
   assertPositive(input.samplingFrequency, "f_s", messages);
+  const pwmFrequency = input.pwmFrequency ?? input.samplingFrequency;
+  const pwmUpdateCycles = input.pwmUpdateCycles ?? 1;
+  const pwmCarrier = input.pwmCarrier ?? "none";
+  const computationDelaySamples = input.computationDelaySamples ?? 0;
+  assertPositive(pwmFrequency, "f_PWM", messages);
+  assertPositive(pwmUpdateCycles, "PWM_UPDATE_CYCLES", messages);
   assertPositive(input.adcBits, "ADC_BITS", messages);
   assertPositive(input.dpwmBits, "DPWM_BITS", messages);
   if (!Number.isFinite(input.dutyMin) || !Number.isFinite(input.dutyMax) || input.dutyMin >= input.dutyMax) {
@@ -70,30 +113,87 @@ export function calculateDigitalCompensator(input: DigitalCompensatorInputs): Di
   if (!Number.isFinite(input.outputDelaySamples) || input.outputDelaySamples < 0) {
     messages.push({ severity: "danger", text: "OUTPUT_DELAY must be zero or greater." });
   }
+  if (!Number.isFinite(computationDelaySamples) || computationDelaySamples < 0) {
+    messages.push({ severity: "danger", text: "COMPUTE_DELAY must be zero or greater." });
+  }
 
   const samplingPeriod = 1 / input.samplingFrequency;
   const { numerator, denominator } = bilinearTransform(input.analogResult, samplingPeriod);
   const order = denominator.length - 1;
   const digitalBode = buildDigitalBode(input.analogResult.compensatorBode, numerator, denominator, samplingPeriod);
-  const totalDelaySamples = input.outputDelaySamples;
-  const totalDelaySeconds = totalDelaySamples * samplingPeriod;
-  const digitalWithDelayBode = applyDelayToBode(digitalBode, totalDelaySeconds);
+  const outputDelaySeconds = input.outputDelaySamples * samplingPeriod;
+  const computationDelaySeconds = computationDelaySamples * samplingPeriod;
+  const pwmDelaySeconds = calculatePwmDelaySeconds(pwmCarrier, pwmFrequency, input.initialDuty);
+  const updateAveragingDelaySeconds = calculateUpdateAveragingDelaySeconds(pwmUpdateCycles, pwmFrequency);
+  const totalDelaySeconds = outputDelaySeconds + computationDelaySeconds + pwmDelaySeconds + updateAveragingDelaySeconds;
+  const totalDelaySamples = totalDelaySeconds / samplingPeriod;
+  const pwmMagnitudeAtCrossoverDb = calculatePwmMagnitudeDb(
+    pwmCarrier,
+    input.analogResult.crossoverFrequency,
+    pwmFrequency,
+  );
+  const digitalWithDelayBode = applyPwmModulatorToBode(digitalBode, {
+    carrier: pwmCarrier,
+    totalDelaySeconds,
+    pwmFrequency,
+  });
   const digitalLoopGainBode = buildLoopGainBode(input.analogResult, digitalBode);
   const digitalLoopGainWithDelayBode = buildLoopGainBode(input.analogResult, digitalWithDelayBode);
   const digitalStabilityMargins = calculateStabilityMargins(digitalLoopGainBode);
   const digitalDelayStabilityMargins = calculateStabilityMargins(digitalLoopGainWithDelayBode);
+  const aliasingDiagnostics = buildAliasingDiagnostics(input.analogResult, input.samplingFrequency, pwmFrequency, pwmUpdateCycles);
   const estimatedDelayPhaseDeg = -360 * input.analogResult.crossoverFrequency *
     totalDelaySeconds;
   const delayBudget = {
     totalDelaySeconds,
     totalDelaySamples,
     phaseAtCrossoverDeg: estimatedDelayPhaseDeg,
+    computationDelaySeconds,
+    computationDelaySamples,
+    outputDelaySeconds,
+    outputDelaySamples: input.outputDelaySamples,
+    pwmDelaySeconds,
+    pwmDelaySamples: pwmDelaySeconds / samplingPeriod,
+    updateAveragingDelaySeconds,
+    updateAveragingDelaySamples: updateAveragingDelaySeconds / samplingPeriod,
+    pwmMagnitudeAtCrossoverDb,
+    components: [
+      { label: "Computation", seconds: computationDelaySeconds, samples: computationDelaySamples },
+      { label: "Output register", seconds: outputDelaySeconds, samples: input.outputDelaySamples },
+      { label: "PWM modulator", seconds: pwmDelaySeconds, samples: pwmDelaySeconds / samplingPeriod },
+      { label: "N-cycle update hold", seconds: updateAveragingDelaySeconds, samples: updateAveragingDelaySeconds / samplingPeriod },
+    ],
   };
 
   if (input.analogResult.crossoverFrequency > input.samplingFrequency / 10) {
     messages.push({
       severity: "warning",
       text: "Target crossover is above f_s/10. Sampling and computation delay may erode phase margin.",
+    });
+  }
+  if (input.analogResult.crossoverFrequency > pwmFrequency / 10) {
+    messages.push({
+      severity: "warning",
+      text: "Target crossover is above f_PWM/10. PWM modulator delay and carrier attenuation should be checked carefully.",
+    });
+  }
+  if (pwmCarrier === "symmetric" && input.analogResult.crossoverFrequency > pwmFrequency / 5) {
+    messages.push({
+      severity: "warning",
+      text: "Symmetric PWM magnitude attenuation becomes visible as crossover approaches the PWM carrier.",
+    });
+  }
+  if (pwmUpdateCycles > 1 && input.samplingFrequency > pwmFrequency / pwmUpdateCycles * 1.05) {
+    messages.push({
+      severity: "warning",
+      text: "f_s is higher than the requested PWM update cadence. If duty updates every N PWM cycles, set f_s close to f_PWM / PWM_UPDATE_CYCLES for coefficient generation.",
+    });
+  }
+  const worstAliasing = aliasingDiagnostics.rows.find((row) => row.severity !== "ok");
+  if (worstAliasing) {
+    messages.push({
+      severity: worstAliasing.severity === "danger" ? "danger" : "warning",
+      text: `PWM sideband alias risk: f_PWM - f_m aliases to ${formatFrequency(worstAliasing.aliasFrequency)} with alias/direct ratio ${formatGainDb(worstAliasing.aliasToDirectRatioDb)}.`,
     });
   }
   if (
@@ -126,7 +226,11 @@ export function calculateDigitalCompensator(input: DigitalCompensatorInputs): Di
     dutyMax: input.dutyMax,
     initialDuty: input.initialDuty,
     outputDelaySamples: input.outputDelaySamples,
+    computationDelaySamples,
     samplingFrequency: input.samplingFrequency,
+    pwmFrequency,
+    pwmUpdateCycles,
+    pwmCarrier,
   });
   const cCode = generateCCodeTemplate(order);
 
@@ -147,6 +251,10 @@ export function calculateDigitalCompensator(input: DigitalCompensatorInputs): Di
     digitalDelayStabilityMargins,
     delayBudget,
     estimatedDelayPhaseDeg,
+    pwmFrequency,
+    pwmUpdateCycles,
+    pwmCarrier,
+    aliasingDiagnostics,
     dutyMin: input.dutyMin,
     dutyMax: input.dutyMax,
     initialDuty: input.initialDuty,
@@ -245,11 +353,121 @@ function buildDigitalBode(
     });
 }
 
-function applyDelayToBode(points: CompensatorBodePoint[], delaySeconds: number): CompensatorBodePoint[] {
+function applyPwmModulatorToBode(
+  points: CompensatorBodePoint[],
+  model: {
+    carrier: PwmCarrierMode;
+    totalDelaySeconds: number;
+    pwmFrequency: number;
+  },
+): CompensatorBodePoint[] {
   return points.map((point) => ({
     ...point,
-    phaseDeg: point.phaseDeg - 360 * point.frequency * delaySeconds,
+    magnitudeDb: point.magnitudeDb + calculatePwmMagnitudeDb(model.carrier, point.frequency, model.pwmFrequency),
+    phaseDeg: point.phaseDeg - 360 * point.frequency * model.totalDelaySeconds,
   }));
+}
+
+function calculatePwmDelaySeconds(carrier: PwmCarrierMode, pwmFrequency: number, duty: number): number {
+  if (!Number.isFinite(pwmFrequency) || pwmFrequency <= 0) {
+    return 0;
+  }
+  const pwmPeriod = 1 / pwmFrequency;
+  const clampedDuty = Math.min(Math.max(duty, 0), 1);
+  if (carrier === "trailing-edge") {
+    return clampedDuty * pwmPeriod;
+  }
+  if (carrier === "leading-edge") {
+    return (1 - clampedDuty) * pwmPeriod;
+  }
+  if (carrier === "symmetric") {
+    return 0.5 * pwmPeriod;
+  }
+  return 0;
+}
+
+function calculateUpdateAveragingDelaySeconds(pwmUpdateCycles: number, pwmFrequency: number): number {
+  if (!Number.isFinite(pwmUpdateCycles) || pwmUpdateCycles <= 1 || !Number.isFinite(pwmFrequency) || pwmFrequency <= 0) {
+    return 0;
+  }
+  return ((pwmUpdateCycles - 1) / 2) / pwmFrequency;
+}
+
+function calculatePwmMagnitudeDb(carrier: PwmCarrierMode, frequency: number, pwmFrequency: number): number {
+  if (carrier !== "symmetric" || !Number.isFinite(frequency) || !Number.isFinite(pwmFrequency) || pwmFrequency <= 0) {
+    return 0;
+  }
+  const attenuation = Math.abs(Math.cos(Math.PI * frequency / pwmFrequency));
+  return 20 * Math.log10(Math.max(attenuation, 1e-6));
+}
+
+function buildAliasingDiagnostics(
+  analogResult: CompensatorResult,
+  samplingFrequency: number,
+  pwmFrequency: number,
+  pwmUpdateCycles: number,
+): DigitalCompensatorResult["aliasingDiagnostics"] {
+  const nyquistFrequency = samplingFrequency / 2;
+  const updateFrequency = pwmFrequency / Math.max(pwmUpdateCycles, 1);
+  const candidateFrequencies = uniqueFrequencies([
+    analogResult.crossoverFrequency / 2,
+    analogResult.crossoverFrequency,
+    analogResult.crossoverFrequency * 2,
+  ]).filter((frequency) => frequency > 0 && frequency < nyquistFrequency * 0.95 && frequency < pwmFrequency);
+  const rows = candidateFrequencies.map((modulationFrequency) => {
+    const lowerSidebandFrequency = Math.abs(pwmFrequency - modulationFrequency);
+    const aliasFrequency = foldFrequency(lowerSidebandFrequency, samplingFrequency);
+    const directGainDb = interpolateCompensatorBode(analogResult.compensatorBode, modulationFrequency).magnitudeDb;
+    const sidebandGainDb = interpolateCompensatorBode(analogResult.compensatorBode, lowerSidebandFrequency).magnitudeDb;
+    const aliasToDirectRatioDb = sidebandGainDb - directGainDb;
+    return {
+      modulationFrequency,
+      lowerSidebandFrequency,
+      aliasFrequency,
+      directGainDb,
+      sidebandGainDb,
+      aliasToDirectRatioDb,
+      severity: classifyAliasRisk(aliasToDirectRatioDb),
+    };
+  });
+
+  return {
+    nyquistFrequency,
+    updateFrequency,
+    rows,
+  };
+}
+
+function uniqueFrequencies(values: number[]): number[] {
+  return values
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .reduce<number[]>((items, value) => {
+      if (items.some((item) => Math.abs(Math.log10(item) - Math.log10(value)) < 1e-6)) {
+        return items;
+      }
+      return [...items, value];
+    }, []);
+}
+
+function foldFrequency(frequency: number, samplingFrequency: number): number {
+  if (!Number.isFinite(frequency) || !Number.isFinite(samplingFrequency) || samplingFrequency <= 0) {
+    return Number.NaN;
+  }
+  const folded = ((frequency % samplingFrequency) + samplingFrequency) % samplingFrequency;
+  return folded > samplingFrequency / 2 ? samplingFrequency - folded : folded;
+}
+
+function classifyAliasRisk(aliasToDirectRatioDb: number): DigitalAliasingDiagnostic["severity"] {
+  if (!Number.isFinite(aliasToDirectRatioDb)) {
+    return "warning";
+  }
+  if (aliasToDirectRatioDb > -10) {
+    return "danger";
+  }
+  if (aliasToDirectRatioDb > -20) {
+    return "warning";
+  }
+  return "ok";
 }
 
 function buildLoopGainBode(
@@ -371,15 +589,23 @@ function formatParameterText(input: {
   dutyMax: number;
   initialDuty: number;
   outputDelaySamples: number;
+  computationDelaySamples: number;
   samplingFrequency: number;
+  pwmFrequency: number;
+  pwmUpdateCycles: number;
+  pwmCarrier: PwmCarrierMode;
 }): string {
   const lines = [
     `FS = ${formatCoefficient(input.samplingFrequency)}`,
+    `PWM_FREQ = ${formatCoefficient(input.pwmFrequency)}`,
+    `PWM_UPDATE_CYCLES = ${formatCoefficient(input.pwmUpdateCycles)}`,
+    `PWM_CARRIER = ${input.pwmCarrier}`,
     ...input.bCoefficients.map((item) => `${item.label.toUpperCase()} = ${formatCoefficient(item.value)}`),
     ...input.aCoefficients.map((item) => `${item.label.toUpperCase()} = ${formatCoefficient(item.value)}`),
     `DUTY_MIN = ${formatCoefficient(input.dutyMin)}`,
     `DUTY_MAX = ${formatCoefficient(input.dutyMax)}`,
     `INITIAL_DUTY = ${formatCoefficient(input.initialDuty)}`,
+    `COMPUTE_DELAY = ${formatCoefficient(input.computationDelaySamples)}`,
     `OUTPUT_DELAY = ${formatCoefficient(input.outputDelaySamples)}`,
   ];
   return lines.join("\n");
@@ -454,6 +680,7 @@ export function formatDigitalSummary(result: DigitalCompensatorResult): string {
     `T_s = ${formatCoefficient(result.samplingPeriod)} s`,
     `Order = ${result.order}`,
     `Delay phase at f_C = ${formatPhaseDeg(result.estimatedDelayPhaseDeg)}`,
+    `PWM attenuation at f_C = ${formatGainDb(result.delayBudget.pwmMagnitudeAtCrossoverDb)}`,
     `Digital gain at f_C = ${formatGainDb(nearestPoint(result.digitalBode, result.samplingFrequency / 100)?.magnitudeDb ?? Number.NaN)}`,
   ].join("\n");
 }
