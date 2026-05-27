@@ -1,5 +1,100 @@
 # Completed
 
+## Add RLC Backend Availability State
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/completed.md`
+- Notes: Fixed the blank RLC Symbolic Analyzer page when the frontend is opened without the FastAPI backend ready. The RLC workspace now probes `/rlc-original/` before rendering the iframe, shows a clear backend-not-connected state instead of an empty frame, and renders the iframe once the original solver HTML is available. Started the local backend for verification. Validation passed with `npm run build`, `.venv\Scripts\python.exe -m pytest -q backend\tests`, and HTTP checks confirming both `:8000` and Vite proxy `:5173` return `Netlist Solver` for `/rlc-original/`.
+
+## Aliasing Explanation Clarification
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Rewrote the Sampling & Aliasing diagnostics explanation in plainer language so users can understand that PWM high-frequency noise may be misread as low-frequency noise after digital sampling. Added a camera-and-spinning-wheel analogy, a first-row table example, and renamed table headers to describe the disturbance, PWM sideband, sampled alias, foldback strength, and risk. Validation passed with `npm run lint` and `npm run build`.
+
+## Sampling Aliasing Diagnostics
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/lib/digitalCompensatorCalculator.ts`
+  - `src/lib/digitalCompensatorCalculator.test.ts`
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added first-pass PWM sampling and aliasing diagnostics based on the harmonic-spectrum article. The digital calculator now reports Nyquist frequency, control update frequency, lower-sideband frequencies `f_PWM - f_m`, folded alias frequencies, alias/direct gain ratio, and risk classification. The UI now shows a Sampling & Aliasing diagnostics panel with a risk table. Validation passed with `npm run lint`, `npx vitest run src/lib/digitalCompensatorCalculator.test.ts src/lib/compensatorCalculator.test.ts`, and `npm run build`. Browser validation at `http://127.0.0.1:5173/` was attempted but the in-app browser runtime was blocked by the local Windows sandbox.
+
+## Digital Parameter Delay Categories
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Classified digital controller guide parameters by delay impact. Added badges and visual left borders for direct delay impact, indirect delay impact, and no small-signal delay impact. Direct delay parameters include `f_PWM`, `PWM_UPDATE_CYCLES`, PWM carrier type, `COMPUTE_DELAY`, and `OUTPUT_DELAY`; indirect parameters include `f_s` and duty settings; ADC/DPWM resolution is marked as not affecting small-signal delay. Validation passed with `npm run lint` and `npm run build`. Browser validation at `http://127.0.0.1:5173/` was attempted but the in-app browser runtime was blocked by the local Windows sandbox.
+
+## N-Cycle Hold Delay Illustration
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added a visual N-cycle hold delay explanation to the digital controller guide. The figure compares the N=1 baseline with an N=4 update window, marks the equivalent hold centers, and labels the extra delay as `(N - 1) * T_PWM / 2`. Validation passed with `npm run lint` and `npm run build`. Browser validation at `http://127.0.0.1:5173/` was attempted but the in-app browser runtime was blocked by the local Windows sandbox.
+
+## Digital Controller N-Cycle Update Delay
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/lib/digitalCompensatorCalculator.ts`
+  - `src/lib/digitalCompensatorCalculator.test.ts`
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Replaced the guide explanation with a clearer total-delay equation: `T_delay,total = T_compute + T_output + T_PWM + T_update_hold`. Added `PWM_UPDATE_CYCLES` to model duty updates that occur every N PWM cycles, using the low-frequency hold-delay approximation `T_update_hold ~= (N - 1) * T_PWM / 2`. Added the parameter to the UI, SIMPLIS parameter export, delay breakdown, and tests. Expanded the digital guide with a complete system flow diagram from power stage feedback through ADC, `G_c(z)`, duty clamp, DPWM, PWM, and back to the power stage. Validation passed with `npm run lint`, `npx vitest run src/lib/digitalCompensatorCalculator.test.ts src/lib/compensatorCalculator.test.ts`, and `npm run build`. Browser validation at `http://127.0.0.1:5173/` was attempted but the in-app browser runtime was blocked by the local Windows sandbox.
+
+## Digital Parameter Guide Formulas
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Extended the digital controller parameter guide with formulas for sampling period, Nyquist frequency, delay phase, PWM period, PWM modulator delay, duty clamp, computation delay, output delay, ADC LSB, and DPWM duty step. Added PWM carrier type diagrams for pure delay, trailing-edge sawtooth, leading-edge sawtooth, and symmetric PWM. Added explicit cross references from the delay-flow figure to the parameter cards for `COMPUTE_DELAY`, `OUTPUT_DELAY`, and `f_PWM + carrier type`. Validation passed with `npm run lint` and `npm run build`. Browser validation at `http://127.0.0.1:5173/` was attempted but the in-app browser runtime was blocked by the local Windows sandbox.
+
+## Digital Controller Parameter Guide
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added an in-app digital controller parameter guide directly after the delay budget section. The guide explains `f_s`, `f_PWM`, PWM carrier type, duty limits and initial duty, computation delay, output delay, ADC bits, and DPWM bits with what each parameter affects, when to adjust it, when it can be left unchanged, and a practical example. Added a visual timing-flow figure showing ADC sampling, compute delay, IIR duty calculation, output delay, PWM load, carrier delay, and active duty. Validation passed with `npm run lint` and `npm run build`. Browser validation at `http://127.0.0.1:5173/` was attempted twice but the in-app browser runtime was blocked by the local Windows sandbox.
+
+## PWM Delay Model Upgrade
+
+- Completion date: 2026-05-27
+- Modified files:
+  - `src/lib/digitalCompensatorCalculator.ts`
+  - `src/lib/digitalCompensatorCalculator.test.ts`
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Expanded the digital controller delay model into a PWM-aware delay budget. The calculator now separates computation delay, output-register delay, and PWM modulator delay; supports pure delay, trailing-edge, leading-edge, and symmetric PWM modes; adds symmetric PWM magnitude attenuation to the digital controller and loop Bode curves; and reports PWM attenuation at crossover. The compensator UI now includes PWM frequency, PWM carrier type, computation delay samples, and a delay breakdown table. Validation passed with `npm run lint`, `npx vitest run src/lib/digitalCompensatorCalculator.test.ts src/lib/compensatorCalculator.test.ts`, and `npm run build`. Browser validation was attempted at `http://127.0.0.1:5173/`, but the in-app browser runtime was blocked by the local Windows sandbox.
+
 ## Digital Controller Delay Bode And SIMPLIS Guide
 
 - Completion date: 2026-05-27

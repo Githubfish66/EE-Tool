@@ -1,4 +1,4 @@
-import { createElement, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import createPlotlyComponent from "react-plotly.js/factory";
 import type { Config, Data, Layout, Shape } from "plotly.js";
@@ -41,6 +41,7 @@ import {
 } from "./lib/compensatorCalculator";
 import {
   DigitalCompensatorResult,
+  PwmCarrierMode,
   calculateDigitalCompensator,
   formatCoefficient,
 } from "./lib/digitalCompensatorCalculator";
@@ -149,6 +150,13 @@ const compensatorTypeLabels: Record<CompensatorType, string> = {
 const compensatorModeLabels: Record<CompensatorDesignMode, string> = {
   auto: "Auto k-factor",
   manual: "Manual pole-zero",
+};
+
+const pwmCarrierLabels: Record<PwmCarrierMode, string> = {
+  none: "Pure delay only",
+  "trailing-edge": "Trailing-edge sawtooth",
+  "leading-edge": "Leading-edge sawtooth",
+  symmetric: "Symmetric PWM",
 };
 
 const featureIcons: Record<NavFeatureId, LucideIcon> = {
@@ -494,9 +502,12 @@ const fieldLabels = {
     poleFrequency1: "f_p1 第一極點頻率",
     poleFrequency2: "f_p2 第二極點頻率",
     samplingFrequency: "f_s 數位控制器取樣頻率",
+    pwmFrequency: "f_PWM PWM carrier 頻率",
+    pwmUpdateCycles: "PWM_UPDATE_CYCLES 更新週期數",
     dutyMin: "DUTY_MIN 最小 duty",
     dutyMax: "DUTY_MAX 最大 duty",
     initialDuty: "INITIAL_DUTY 初始 duty",
+    computationDelaySamples: "COMPUTE_DELAY 計算延遲",
     outputDelaySamples: "OUTPUT_DELAY 輸出延遲",
     adcBits: "ADC_BITS 解析度",
     dpwmBits: "DPWM_BITS 解析度",
@@ -541,9 +552,12 @@ const fieldLabels = {
     poleFrequency1: "f_p1 first pole frequency",
     poleFrequency2: "f_p2 second pole frequency",
     samplingFrequency: "f_s digital sampling frequency",
+    pwmFrequency: "f_PWM PWM carrier frequency",
+    pwmUpdateCycles: "PWM_UPDATE_CYCLES update cadence",
     dutyMin: "DUTY_MIN minimum duty",
     dutyMax: "DUTY_MAX maximum duty",
     initialDuty: "INITIAL_DUTY initial duty",
+    computationDelaySamples: "COMPUTE_DELAY compute delay",
     outputDelaySamples: "OUTPUT_DELAY output delay",
     adcBits: "ADC_BITS resolution",
     dpwmBits: "DPWM_BITS resolution",
@@ -590,9 +604,12 @@ const fieldUnits: Record<string, string> = {
   poleFrequency1: "frequency",
   poleFrequency2: "frequency",
   samplingFrequency: "frequency",
+  pwmFrequency: "frequency",
+  pwmUpdateCycles: "count",
   dutyMin: "duty",
   dutyMax: "duty",
   initialDuty: "duty",
+  computationDelaySamples: "count",
   outputDelaySamples: "count",
   adcBits: "count",
   dpwmBits: "count",
@@ -696,9 +713,12 @@ const defaultCompensatorValues: NumericState = {
   poleFrequency1: 50,
   poleFrequency2: 50,
   samplingFrequency: 100,
+  pwmFrequency: 100,
+  pwmUpdateCycles: 1,
   dutyMin: 2,
   dutyMax: 95,
   initialDuty: 10,
+  computationDelaySamples: 0,
   outputDelaySamples: 1,
   adcBits: 12,
   dpwmBits: 10,
@@ -718,9 +738,12 @@ const defaultCompensatorUnits: UnitState = {
   poleFrequency1: "kHz",
   poleFrequency2: "kHz",
   samplingFrequency: "kHz",
+  pwmFrequency: "kHz",
+  pwmUpdateCycles: "count",
   dutyMin: "%",
   dutyMax: "%",
   initialDuty: "%",
+  computationDelaySamples: "count",
   outputDelaySamples: "count",
   adcBits: "count",
   dpwmBits: "count",
@@ -851,6 +874,7 @@ export function App() {
   const [analysisDirty, setAnalysisDirty] = useState(false);
   const [compensatorType, setCompensatorType] = useState<CompensatorType>("type2");
   const [compensatorMode, setCompensatorMode] = useState<CompensatorDesignMode>("auto");
+  const [pwmCarrier, setPwmCarrier] = useState<PwmCarrierMode>("trailing-edge");
   const [compValues, setCompValues] = useState<NumericState>(defaultCompensatorValues);
   const [compUnits, setCompUnits] = useState<UnitState>(defaultCompensatorUnits);
   const [csvText, setCsvText] = useState(sampleBodeCsv);
@@ -1075,6 +1099,7 @@ export function App() {
     const parsed = parseBodeCsv(sampleBodeCsv);
     setCompensatorType("type2");
     setCompensatorMode("auto");
+    setPwmCarrier("trailing-edge");
     setCompValues(defaultCompensatorValues);
     setCompUnits(defaultCompensatorUnits);
     setCsvText(sampleBodeCsv);
@@ -1227,6 +1252,7 @@ export function App() {
             locale={locale}
             compensatorType={compensatorType}
             compensatorMode={compensatorMode}
+            pwmCarrier={pwmCarrier}
             values={compValues}
             units={compUnits}
             csvText={csvText}
@@ -1240,6 +1266,10 @@ export function App() {
             }}
             onCompensatorModeChange={(nextMode) => {
               setCompensatorMode(nextMode);
+              setCompAnalysisDirty(true);
+            }}
+            onPwmCarrierChange={(nextCarrier) => {
+              setPwmCarrier(nextCarrier);
               setCompAnalysisDirty(true);
             }}
             onValueChange={updateCompValue}
@@ -1284,7 +1314,7 @@ export function App() {
             onReset={resetMosfetThermal}
           />
         ) : feature === "rlc-solver" ? (
-          <RlcSolverWorkspace />
+          <RlcSolverWorkspace locale={locale} />
         ) : feature === "simetrix-guide" ? (
           <SimetrixGuideWorkspace markdown={simetrixSpeedGuideMarkdown} />
         ) : (
@@ -1298,13 +1328,68 @@ export function App() {
   );
 }
 
-function RlcSolverWorkspace() {
+function RlcSolverWorkspace({ locale }: { locale: Locale }) {
+  const [frameStatus, setFrameStatus] = useState<"checking" | "ready" | "unavailable">("checking");
+  const frameSrc = "/rlc-original/?v=workbench-fill-result";
+
+  useEffect(() => {
+    let cancelled = false;
+    setFrameStatus("checking");
+    fetch(`${frameSrc}&probe=${Date.now()}`, { cache: "no-store" })
+      .then(async (response) => {
+        const html = await response.text();
+        if (cancelled) {
+          return;
+        }
+        setFrameStatus(response.ok && html.includes("RLC Symbolic Solver") ? "ready" : "unavailable");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFrameStatus("unavailable");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [frameSrc]);
+
+  if (frameStatus !== "ready") {
+    return (
+      <section className="rlc-original-frame-shell rlc-frame-state" aria-label="Original RLC Symbolic Solver">
+        <div className="rlc-frame-message">
+          <h2>
+            {frameStatus === "checking"
+              ? locale === "zh"
+                ? "正在載入 RLC 求解器"
+                : "Loading RLC solver"
+              : locale === "zh"
+                ? "RLC 求解器後端尚未連線"
+                : "RLC solver backend is not connected"}
+          </h2>
+          <p>
+            {frameStatus === "checking"
+              ? locale === "zh"
+                ? "正在確認原始 solver 頁面是否可用。"
+                : "Checking whether the original solver page is available."
+              : locale === "zh"
+                ? "請先啟動 FastAPI 後端，或改用整合後端網址開啟 EE Tool。"
+                : "Start the FastAPI backend first, or open EE Tool from the integrated backend URL."}
+          </p>
+          {frameStatus === "unavailable" ? (
+            <code>{".\\.venv\\Scripts\\python.exe -m backend.run_api"}</code>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="rlc-original-frame-shell" aria-label="Original RLC Symbolic Solver">
       <iframe
         className="rlc-original-frame"
         title="Original RLC Symbolic Solver"
-        src="/rlc-original/?v=workbench-fill-result"
+        src={frameSrc}
       />
     </section>
   );
@@ -2617,6 +2702,7 @@ function CompensatorWorkspace({
   locale,
   compensatorType,
   compensatorMode,
+  pwmCarrier,
   values,
   units,
   csvText,
@@ -2626,6 +2712,7 @@ function CompensatorWorkspace({
   analysisDirty,
   onCompensatorTypeChange,
   onCompensatorModeChange,
+  onPwmCarrierChange,
   onValueChange,
   onUnitChange,
   onCsvChange,
@@ -2636,6 +2723,7 @@ function CompensatorWorkspace({
   locale: Locale;
   compensatorType: CompensatorType;
   compensatorMode: CompensatorDesignMode;
+  pwmCarrier: PwmCarrierMode;
   values: NumericState;
   units: UnitState;
   csvText: string;
@@ -2645,6 +2733,7 @@ function CompensatorWorkspace({
   analysisDirty: boolean;
   onCompensatorTypeChange: (type: CompensatorType) => void;
   onCompensatorModeChange: (mode: CompensatorDesignMode) => void;
+  onPwmCarrierChange: (carrier: PwmCarrierMode) => void;
   onValueChange: (key: string, value: number) => void;
   onUnitChange: (key: string, value: string) => void;
   onCsvChange: (text: string) => void;
@@ -2756,9 +2845,28 @@ function CompensatorWorkspace({
             <p>Tustin conversion, duty clamp, delay, and quantization settings for SIMPLIS C-Code DLL output.</p>
             <div className="field-grid">
               <NumberField fieldKey="samplingFrequency" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+              <NumberField fieldKey="pwmFrequency" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+              <NumberField fieldKey="pwmUpdateCycles" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+              <label className="number-field">
+                <span>{locale === "zh" ? "PWM carrier type" : "PWM carrier type"}</span>
+                <div>
+                  <select
+                    aria-label="PWM carrier type"
+                    value={pwmCarrier}
+                    onChange={(event) => onPwmCarrierChange(event.target.value as PwmCarrierMode)}
+                  >
+                    {(Object.keys(pwmCarrierLabels) as PwmCarrierMode[]).map((carrier) => (
+                      <option key={carrier} value={carrier}>
+                        {pwmCarrierLabels[carrier]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </label>
               <NumberField fieldKey="dutyMin" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
               <NumberField fieldKey="dutyMax" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
               <NumberField fieldKey="initialDuty" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+              <NumberField fieldKey="computationDelaySamples" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
               <NumberField fieldKey="outputDelaySamples" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
               <NumberField fieldKey="adcBits" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
               <NumberField fieldKey="dpwmBits" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
@@ -2785,6 +2893,7 @@ function CompensatorWorkspace({
             dirty={analysisDirty}
             values={values}
             units={units}
+            pwmCarrier={pwmCarrier}
           />
         ) : (
           <PendingPanel locale={locale} />
@@ -3015,22 +3124,28 @@ function CompensatorResultPanel({
   dirty,
   values,
   units,
+  pwmCarrier,
 }: {
   result: CompensatorResult;
   locale: Locale;
   dirty: boolean;
   values: NumericState;
   units: UnitState;
+  pwmCarrier: PwmCarrierMode;
 }) {
   const t = translations[locale];
   const dangerCount = result.messages.filter((message) => message.severity === "danger").length;
   const digitalResult = calculateDigitalCompensator({
     analogResult: result,
     samplingFrequency: toSi(values.samplingFrequency, units.samplingFrequency),
+    pwmFrequency: toSi(values.pwmFrequency, units.pwmFrequency),
+    pwmUpdateCycles: toSi(values.pwmUpdateCycles, units.pwmUpdateCycles),
     dutyMin: toSi(values.dutyMin, units.dutyMin),
     dutyMax: toSi(values.dutyMax, units.dutyMax),
     initialDuty: toSi(values.initialDuty, units.initialDuty),
+    computationDelaySamples: toSi(values.computationDelaySamples, units.computationDelaySamples),
     outputDelaySamples: toSi(values.outputDelaySamples, units.outputDelaySamples),
+    pwmCarrier,
     adcBits: toSi(values.adcBits, units.adcBits),
     dpwmBits: toSi(values.dpwmBits, units.dpwmBits),
     method: "tustin",
@@ -3130,6 +3245,7 @@ function DigitalCompensatorPanel({
       controllerBodeTitle: "類比 / 數位控制器 Bode 比較",
       loopBodeTitle: "數位 Loop Gain 與 Delay Margin",
       delayBudgetTitle: "Delay budget",
+      aliasingTitle: "Sampling & Aliasing 診斷",
       parameterTitle: "SIMPLIS 參數",
       codeTitle: "C-Code DLL 核心片段",
       guideTitle: "SIMPLIS DLL 使用說明",
@@ -3140,6 +3256,8 @@ function DigitalCompensatorPanel({
       digitalPm: "Digital PM",
       delayPm: "Delay PM",
       delaySamples: "Delay samples",
+      pwmCarrier: "PWM carrier",
+      pwmAttenuation: "PWM attenuation",
     }
     : {
       title: "Digital Controller And SIMPLIS DLL",
@@ -3147,6 +3265,7 @@ function DigitalCompensatorPanel({
       controllerBodeTitle: "Analog / Digital Controller Bode",
       loopBodeTitle: "Digital Loop Gain And Delay Margin",
       delayBudgetTitle: "Delay budget",
+      aliasingTitle: "Sampling & Aliasing Diagnostics",
       parameterTitle: "SIMPLIS Parameters",
       codeTitle: "C-Code DLL Core",
       guideTitle: "SIMPLIS DLL Usage Guide",
@@ -3157,6 +3276,8 @@ function DigitalCompensatorPanel({
       digitalPm: "Digital PM",
       delayPm: "Delay PM",
       delaySamples: "Delay samples",
+      pwmCarrier: "PWM carrier",
+      pwmAttenuation: "PWM attenuation",
     };
 
   function downloadText(fileName: string, content: string) {
@@ -3175,6 +3296,8 @@ function DigitalCompensatorPanel({
       </div>
       <div className="summary-strip">
         <Metric label="f_s" value={formatDigitalFrequency(result.samplingFrequency)} />
+        <Metric label="f_PWM" value={formatDigitalFrequency(result.pwmFrequency)} />
+        <Metric label="PWM update" value={`${trimFixed(result.pwmUpdateCycles, 3)} cycles`} />
         <Metric label="T_s" value={formatSamplingPeriod(result.samplingPeriod)} />
         <Metric label="IIR order" value={`${result.order}`} />
         <Metric label={text.delaySamples} value={trimFixed(result.delayBudget.totalDelaySamples, 3)} />
@@ -3185,10 +3308,25 @@ function DigitalCompensatorPanel({
         <div className="summary-strip">
           <Metric label="T_delay" value={formatSamplingPeriod(result.delayBudget.totalDelaySeconds)} />
           <Metric label="Delay at f_C" value={formatPhaseDeg(result.delayBudget.phaseAtCrossoverDeg)} />
+          <Metric label={text.pwmCarrier} value={pwmCarrierLabels[result.pwmCarrier]} />
+          <Metric label={text.pwmAttenuation} value={formatGainDb(result.delayBudget.pwmMagnitudeAtCrossoverDb)} />
           <Metric label={text.digitalPm} value={formatOptionalPhase(result.digitalStabilityMargins.phaseMarginDeg)} />
           <Metric label={text.delayPm} value={formatOptionalPhase(result.digitalDelayStabilityMargins.phaseMarginDeg)} />
         </div>
+        <div className="delay-breakdown">
+          {result.delayBudget.components.map((component) => (
+            <div className="delay-breakdown-row" key={component.label}>
+              <span>{component.label}</span>
+              <strong>{formatSamplingPeriod(component.seconds)}</strong>
+              <small>{trimFixed(component.samples, 3)} samples</small>
+            </div>
+          ))}
+        </div>
       </section>
+
+      <DigitalParameterGuide locale={locale} />
+
+      <DigitalAliasingPanel result={result} locale={locale} title={text.aliasingTitle} />
 
       <section className="formula-panel">
         <h2>{text.controllerBodeTitle}</h2>
@@ -3298,11 +3436,104 @@ function DigitalControllerBodePlot({
       traces={[
         { name: "G<sub>c</sub>(s)", points: analogResult.compensatorBode, color: "#d95319" },
         { name: "G<sub>c</sub>(z)", points: result.digitalBode, color: "#2563eb" },
-        { name: "G<sub>c</sub>(z)z<sup>-N</sup>", points: result.digitalWithDelayBode, color: "#7e2f8e", dash: "dash" },
+        { name: "G<sub>c</sub>(z)G<sub>PWM</sub>", points: result.digitalWithDelayBode, color: "#7e2f8e", dash: "dash" },
       ]}
       samplingFrequency={result.samplingFrequency}
     />
   );
+}
+
+function DigitalAliasingPanel({
+  result,
+  locale,
+  title,
+}: {
+  result: DigitalCompensatorResult;
+  locale: Locale;
+  title: string;
+}) {
+  const isZh = locale === "zh";
+  const rows = result.aliasingDiagnostics.rows;
+  if (rows.length === 0) {
+    return (
+      <section className="formula-panel digital-aliasing-panel">
+        <h2>{title}</h2>
+        <p className="message warning">
+          {isZh ? "目前沒有足夠的頻率範圍可建立 aliasing 診斷。" : "No frequency range is available for aliasing diagnostics."}
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="formula-panel digital-aliasing-panel">
+      <h2>{title}</h2>
+      <div className="summary-strip compact">
+        <Metric label="Nyquist" value={formatFrequency(result.aliasingDiagnostics.nyquistFrequency)} />
+        <Metric label="f_update" value={formatFrequency(result.aliasingDiagnostics.updateFrequency)} />
+        <Metric label="f_PWM" value={formatFrequency(result.pwmFrequency)} />
+      </div>
+      <p className="chart-help">
+        {isZh
+          ? "這張表是在檢查一件事：PWM 產生的高頻雜訊，會不會被數位取樣誤看成低頻雜訊。若折回強度越接近 0 dB，代表這個假低頻越強，越容易干擾控制器。"
+          : "This table checks whether high-frequency PWM noise can be misread as low-frequency noise after digital sampling. Foldback strength closer to 0 dB means the false low-frequency component is stronger and more likely to disturb the controller."}
+      </p>
+      <div className="aliasing-explainer">
+        <div>
+          <strong>{isZh ? "怎麼看" : "How to read it"}</strong>
+          <p>
+            {isZh
+              ? "可以把它想成相機拍高速旋轉的輪子：輪子其實轉很快，但畫面可能看起來很慢，甚至像倒轉。數位控制器取樣 PWM 雜訊時也類似；原本在高頻的雜訊，取樣後可能看起來像低頻訊號。"
+              : "Think of a camera filming a fast spinning wheel: the wheel is moving quickly, but the video can make it look slow or even reversed. Digital sampling can do the same to PWM noise: a high-frequency component may appear as a low-frequency signal."}
+          </p>
+        </div>
+        <div>
+          <strong>{isZh ? "表格例子" : "Table example"}</strong>
+          <p>
+            {isZh
+              ? "第一列的意思是：原本有一個靠近 100 kHz PWM 的 95 kHz 雜訊；控制器每 10 us 看一次訊號時，它可能被看成 5 kHz。折回強度 -4 dB 表示它沒有小很多，所以這列標成高風險。"
+              : "The first row means: a 95 kHz noise component near the 100 kHz PWM may be seen as 5 kHz when the controller samples every 10 us. A -4 dB foldback strength means it is not much smaller, so the row is high risk."}
+          </p>
+        </div>
+      </div>
+      <div className="aliasing-table">
+        <div className="aliasing-row heading">
+          <span>{isZh ? "低頻擾動 f_m" : "Disturbance f_m"}</span>
+          <span>{isZh ? "PWM 旁帶 f_PWM - f_m" : "PWM sideband f_PWM - f_m"}</span>
+          <span>{isZh ? "取樣後看成" : "Seen after sampling"}</span>
+          <span>{isZh ? "折回強度" : "Foldback strength"}</span>
+          <span>{isZh ? "風險" : "risk"}</span>
+        </div>
+        {rows.map((row) => (
+          <div className={`aliasing-row ${row.severity}`} key={`${row.modulationFrequency}-${row.lowerSidebandFrequency}`}>
+            <span>{formatFrequency(row.modulationFrequency)}</span>
+            <span>{formatFrequency(row.lowerSidebandFrequency)}</span>
+            <span>{formatFrequency(row.aliasFrequency)}</span>
+            <span>{formatGainDb(row.aliasToDirectRatioDb)}</span>
+            <strong>{formatAliasRisk(row.severity, locale)}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function formatAliasRisk(severity: "ok" | "warning" | "danger", locale: Locale): string {
+  if (locale === "zh") {
+    if (severity === "danger") {
+      return "高";
+    }
+    if (severity === "warning") {
+      return "中";
+    }
+    return "低";
+  }
+  if (severity === "danger") {
+    return "High";
+  }
+  if (severity === "warning") {
+    return "Medium";
+  }
+  return "Low";
 }
 
 function DigitalLoopBodePlot({
@@ -3322,7 +3553,7 @@ function DigitalLoopBodePlot({
         traces={[
           { name: "T(s)", points: analogResult.loopGainBode, color: "#77ac30" },
           { name: "T(z)", points: result.digitalLoopGainBode, color: "#2563eb" },
-          { name: "T(z) with delay", points: result.digitalLoopGainWithDelayBode, color: "#7e2f8e", dash: "dash" },
+          { name: "T(z) with PWM delay", points: result.digitalLoopGainWithDelayBode, color: "#7e2f8e", dash: "dash" },
         ]}
         samplingFrequency={result.samplingFrequency}
         showUnityLines
@@ -3426,7 +3657,7 @@ function DigitalBodePlot({
     <div className="bode-plot-panel">
       <h3 className="bode-panel-title">{title}</h3>
       <Plot className="plotly-bode-chart digital-bode-chart" data={data} layout={layout} config={config} useResizeHandler />
-      <p className="chart-help">Dashed sampling guides mark f_s/20 and f_s/10. Delay changes phase only; magnitude stays unchanged.</p>
+      <p className="chart-help">Dashed sampling guides mark f_s/20 and f_s/10. Pure delay changes phase; symmetric PWM can also attenuate magnitude.</p>
     </div>
   );
 }
@@ -3487,6 +3718,475 @@ function unityMarginShapes(): Partial<Shape>[] {
       line: { color: "#555555", width: 1, dash: "dot" },
     },
   ];
+}
+
+type DigitalGuideParameter = {
+  key: string;
+  title: string;
+  delayImpact: "direct" | "indirect" | "none";
+  affects: string;
+  adjustWhen: string;
+  leaveWhen: string;
+  example: string;
+  formulas: string[];
+  delayLink?: string;
+};
+
+const pwmCarrierGuideItems: Array<{
+  key: PwmCarrierMode;
+  title: string;
+  formula: string;
+  noteZh: string;
+  noteEn: string;
+}> = [
+  {
+    key: "none",
+    title: "Pure delay only",
+    formula: "T_PWM_delay = 0",
+    noteZh: "PWM modulator delay 已由其他模型包含時使用。",
+    noteEn: "Use when PWM modulator delay is already included elsewhere.",
+  },
+  {
+    key: "trailing-edge",
+    title: "Trailing-edge sawtooth",
+    formula: "T_PWM_delay = D * T_PWM",
+    noteZh: "與 duty 有關；duty 越大，等效 delay 越大。",
+    noteEn: "Duty-dependent; delay increases as duty increases.",
+  },
+  {
+    key: "leading-edge",
+    title: "Leading-edge sawtooth",
+    formula: "T_PWM_delay = (1 - D) * T_PWM",
+    noteZh: "與 duty 有關；duty 越大，等效 delay 越小。",
+    noteEn: "Duty-dependent; delay decreases as duty increases.",
+  },
+  {
+    key: "symmetric",
+    title: "Symmetric PWM",
+    formula: "T_PWM_delay = 0.5 * T_PWM",
+    noteZh: "本工具用 |cos(pi*f/f_PWM)| 估算對稱 PWM 的增益衰減。",
+    noteEn: "|G_PWM| ~= |cos(pi*f/f_PWM)| in this tool.",
+  },
+];
+
+function DigitalParameterGuide({ locale }: { locale: Locale }) {
+  const isZh = locale === "zh";
+  const delayImpactText = {
+    direct: isZh ? "直接影響 delay" : "Direct delay impact",
+    indirect: isZh ? "間接影響 delay" : "Indirect delay impact",
+    none: isZh ? "不影響小訊號 delay" : "No small-signal delay impact",
+  };
+  const parameters: DigitalGuideParameter[] = isZh
+    ? [
+      {
+        key: "fs",
+        title: "f_s 數位控制器取樣頻率",
+        delayImpact: "indirect",
+        affects: "決定 IIR 更新速度、Nyquist 頻率，以及每一個 sample delay 代表多少時間。",
+        adjustWhen: "當 MCU/DSP 實際控制中斷頻率改變，或 crossover 已接近 f_s/10 時要調整。",
+        leaveWhen: "若控制器每個 PWM 週期更新一次，通常設成等於 f_PWM。",
+        example: "f_s = 100 kHz 時，1 sample = 10 us；若 OUTPUT_DELAY = 1，就會在 10 kHz 造成約 -36 deg 相位落後。",
+        formulas: ["T_s = 1 / f_s", "f_Nyquist = f_s / 2", "phase_delay = -360 deg * f * N_delay * T_s"],
+      },
+      {
+        key: "fpwm",
+        title: "f_PWM PWM carrier 頻率",
+        delayImpact: "direct",
+        affects: "決定 PWM modulator 的等效 delay，以及 symmetric PWM 的高頻增益衰減。",
+        adjustWhen: "當實際 switching frequency 與控制取樣頻率不同時要分開設定。",
+        leaveWhen: "若控制更新與 PWM 同步且一個 PWM 週期更新一次，可先設成與 f_s 相同。",
+        example: "f_PWM = 100 kHz、trailing-edge、D = 10% 時，PWM delay 約 1 us；D = 50% 時會變成 5 us。",
+        formulas: ["T_PWM = 1 / f_PWM", "f_c target <= f_PWM / 10"],
+        delayLink: "對應上圖：carrier delay",
+      },
+      {
+        key: "update-cycles",
+        title: "PWM_UPDATE_CYCLES 每 N 週期更新一次",
+        delayImpact: "direct",
+        affects: "描述 duty 每幾個 PWM 週期才更新一次。N > 1 時，duty hold 會多出低頻群延遲，phase margin 會再下降。",
+        adjustWhen: "當控制器不是每個 PWM cycle 都更新，例如每 2、4 或更多個 switching cycle 才跑一次控制迴圈。",
+        leaveWhen: "若 ADC、控制 ISR、PWM shadow load 每個 PWM 週期同步更新，就維持 1。",
+        example: "f_PWM = 100 kHz、N = 4 時，額外 hold delay 約 (4 - 1)/2 * 10 us = 15 us。",
+        formulas: ["f_update = f_PWM / N", "T_update_hold ~= (N - 1) * T_PWM / 2", "T_delay,total includes T_update_hold"],
+        delayLink: "對應上圖：N-cycle update hold",
+      },
+      {
+        key: "carrier",
+        title: "PWM carrier type",
+        delayImpact: "direct",
+        affects: "決定 PWM modulator delay 的公式。Trailing-edge 與 duty 有關；symmetric 通常約半個 PWM 週期。",
+        adjustWhen: "當 SIMPLIS/MCU 使用不同 PWM 對齊方式，例如 trailing-edge、leading-edge 或 center-aligned PWM。",
+        leaveWhen: "若尚未確認硬體 PWM 模式，先用最接近 IC/韌體預設的 trailing-edge 做保守估算。",
+        example: "Buck 常見 trailing-edge PWM；center-aligned 或 up-down counter 比較接近 symmetric PWM。",
+        formulas: ["trailing: T_PWM_delay = D*T_PWM", "leading: T_PWM_delay = (1-D)*T_PWM", "symmetric: T_PWM_delay = T_PWM/2"],
+        delayLink: "對應上圖：carrier delay",
+      },
+      {
+        key: "duty",
+        title: "DUTY_MIN / DUTY_MAX / INITIAL_DUTY",
+        delayImpact: "indirect",
+        affects: "限制輸出 duty 範圍、設定模擬起始 duty，並影響 duty-dependent PWM delay。",
+        adjustWhen: "當 converter 操作點、輸入輸出範圍、保護限制或 startup 初始 duty 改變時。",
+        leaveWhen: "若只是比較 analog/digital loop shape，且不研究飽和或啟動，可以先維持預設範圍。",
+        example: "12 V 轉 1.2 V buck 初始 duty 可先設 10%；若低壓大 duty boost，INITIAL_DUTY 應改到接近穩態 duty。",
+        formulas: ["D = V_OUT / V_IN for ideal buck", "D_cmd = clamp(D_raw, DUTY_MIN, DUTY_MAX)", "trailing PWM delay uses INITIAL_DUTY as D"],
+      },
+      {
+        key: "compute",
+        title: "COMPUTE_DELAY 計算延遲",
+        delayImpact: "direct",
+        affects: "代表 ADC 取樣後到 duty 計算完成的延遲，主要吃掉 phase margin。",
+        adjustWhen: "當韌體需要下一個 ISR 才更新 duty、平均取樣、多通道計算或 DMA latency 明顯時。",
+        leaveWhen: "若控制程式在同一個 ISR 內立即完成並寫入 PWM shadow register，可先用 0 到 0.5 sample。",
+        example: "f_s = 100 kHz，COMPUTE_DELAY = 0.5 代表 5 us，在 10 kHz 約 -18 deg。",
+        formulas: ["T_compute = COMPUTE_DELAY * T_s", "phase_compute = -360 deg * f_c * T_compute"],
+        delayLink: "對應上圖：計算延遲",
+      },
+      {
+        key: "output",
+        title: "OUTPUT_DELAY 輸出延遲",
+        delayImpact: "direct",
+        affects: "代表 duty 寫入後到 PWM 實際採用的 sample 延遲，通常來自 shadow register 或下一週期更新。",
+        adjustWhen: "當 PWM register 只在週期邊界載入，或 SIMPLIS DLL 有刻意延遲 duty bus 輸出時。",
+        leaveWhen: "若 PWM 寫入可立即生效且模擬已包含 carrier delay，可設為 0。",
+        example: "大多數數位 PWM 使用 shadow load，常見 OUTPUT_DELAY = 1 sample 作為保守估算。",
+        formulas: ["T_output = OUTPUT_DELAY * T_s", "phase_output = -360 deg * f_c * T_output"],
+        delayLink: "對應上圖：輸出延遲",
+      },
+      {
+        key: "resolution",
+        title: "ADC_BITS / DPWM_BITS 解析度",
+        delayImpact: "none",
+        affects: "影響量化誤差、limit cycle 風險與可達的 duty step；目前主要輸出到 SIMPLIS DLL 參數。",
+        adjustWhen: "當實際 ADC 或 DPWM 解析度已知，或需要評估低振幅誤差與 duty granularity。",
+        leaveWhen: "若現在只看線性 Bode 與 delay margin，解析度不會改變連續小訊號 Bode，可先不用調。",
+        example: "10-bit DPWM 的 duty step 約 0.098%；若輸出電壓 ripple 或 limit cycle 很敏感，需要提高 DPWM bits。",
+        formulas: ["ADC_LSB = V_ADC_FS / (2^ADC_BITS - 1)", "DPWM duty step = 1 / 2^DPWM_BITS", "D_quantized = round(D_cmd * 2^DPWM_BITS) / 2^DPWM_BITS"],
+      },
+    ]
+    : [
+      {
+        key: "fs",
+        title: "f_s digital sampling frequency",
+        delayImpact: "indirect",
+        affects: "Sets IIR update rate, Nyquist frequency, and the time represented by one sample of delay.",
+        adjustWhen: "Adjust when the MCU/DSP interrupt rate changes or crossover approaches f_s/10.",
+        leaveWhen: "If the controller updates once per PWM cycle, start with f_s equal to f_PWM.",
+        example: "At f_s = 100 kHz, one sample is 10 us; OUTPUT_DELAY = 1 adds about -36 deg at 10 kHz.",
+        formulas: ["T_s = 1 / f_s", "f_Nyquist = f_s / 2", "phase_delay = -360 deg * f * N_delay * T_s"],
+      },
+      {
+        key: "fpwm",
+        title: "f_PWM PWM carrier frequency",
+        delayImpact: "direct",
+        affects: "Sets PWM modulator delay and symmetric-PWM high-frequency attenuation.",
+        adjustWhen: "Adjust when switching frequency and control sampling frequency are different.",
+        leaveWhen: "If PWM and control update are synchronous once per cycle, keep it equal to f_s.",
+        example: "At 100 kHz trailing-edge PWM, D = 10% gives about 1 us PWM delay; D = 50% gives 5 us.",
+        formulas: ["T_PWM = 1 / f_PWM", "f_c target <= f_PWM / 10"],
+        delayLink: "Maps to figure: carrier delay",
+      },
+      {
+        key: "update-cycles",
+        title: "PWM_UPDATE_CYCLES update every N PWM cycles",
+        delayImpact: "direct",
+        affects: "Describes how many PWM periods pass before the duty command is refreshed. N > 1 adds low-frequency hold delay and reduces phase margin.",
+        adjustWhen: "Adjust when the controller runs every 2, 4, or more switching cycles instead of every PWM cycle.",
+        leaveWhen: "Keep 1 when ADC sampling, control ISR, and PWM shadow load update every PWM cycle.",
+        example: "At f_PWM = 100 kHz and N = 4, extra hold delay is about (4 - 1)/2 * 10 us = 15 us.",
+        formulas: ["f_update = f_PWM / N", "T_update_hold ~= (N - 1) * T_PWM / 2", "T_delay,total includes T_update_hold"],
+        delayLink: "Maps to figure: N-cycle update hold",
+      },
+      {
+        key: "carrier",
+        title: "PWM carrier type",
+        delayImpact: "direct",
+        affects: "Selects the PWM delay formula. Trailing-edge is duty-dependent; symmetric is roughly half a PWM period.",
+        adjustWhen: "Adjust when the SIMPLIS/MCU PWM alignment is known.",
+        leaveWhen: "If unknown, trailing-edge is a practical first pass for many buck controllers.",
+        example: "Center-aligned or up-down-counter PWM is closer to symmetric PWM.",
+        formulas: ["trailing: T_PWM_delay = D*T_PWM", "leading: T_PWM_delay = (1-D)*T_PWM", "symmetric: T_PWM_delay = T_PWM/2"],
+        delayLink: "Maps to figure: carrier delay",
+      },
+      {
+        key: "duty",
+        title: "DUTY_MIN / DUTY_MAX / INITIAL_DUTY",
+        delayImpact: "indirect",
+        affects: "Limits duty range, sets startup duty, and affects duty-dependent PWM delay.",
+        adjustWhen: "Adjust for operating point, line/load range, protection limits, or startup study.",
+        leaveWhen: "If only comparing analog/digital loop shape, defaults are usually fine.",
+        example: "A 12 V to 1.2 V buck can start near 10% duty; a boost at high duty should use its expected steady-state duty.",
+        formulas: ["D = V_OUT / V_IN for ideal buck", "D_cmd = clamp(D_raw, DUTY_MIN, DUTY_MAX)", "trailing PWM delay uses INITIAL_DUTY as D"],
+      },
+      {
+        key: "compute",
+        title: "COMPUTE_DELAY",
+        delayImpact: "direct",
+        affects: "Models ADC-to-duty calculation latency and directly reduces phase margin.",
+        adjustWhen: "Adjust for next-ISR updates, averaging, DMA latency, or heavy control code.",
+        leaveWhen: "Use 0 to 0.5 sample if the ISR computes and writes the PWM shadow register immediately.",
+        example: "At f_s = 100 kHz, COMPUTE_DELAY = 0.5 is 5 us and about -18 deg at 10 kHz.",
+        formulas: ["T_compute = COMPUTE_DELAY * T_s", "phase_compute = -360 deg * f_c * T_compute"],
+        delayLink: "Maps to figure: compute delay",
+      },
+      {
+        key: "output",
+        title: "OUTPUT_DELAY",
+        delayImpact: "direct",
+        affects: "Models the delay from duty write to actual PWM use, often from shadow-register load timing.",
+        adjustWhen: "Adjust when PWM registers load only at the next carrier boundary or the DLL delays the duty bus.",
+        leaveWhen: "Set 0 if PWM duty takes effect immediately and carrier delay is already modeled.",
+        example: "For shadow-load digital PWM, OUTPUT_DELAY = 1 sample is a conservative starting point.",
+        formulas: ["T_output = OUTPUT_DELAY * T_s", "phase_output = -360 deg * f_c * T_output"],
+        delayLink: "Maps to figure: output delay",
+      },
+      {
+        key: "resolution",
+        title: "ADC_BITS / DPWM_BITS",
+        delayImpact: "none",
+        affects: "Affects quantization, limit-cycle risk, and duty granularity; exported to SIMPLIS DLL parameters.",
+        adjustWhen: "Adjust when real ADC/DPWM resolution is known or quantization behavior matters.",
+        leaveWhen: "For linear Bode and delay-margin checks, resolution does not change the small-signal Bode.",
+        example: "A 10-bit DPWM has about 0.098% duty step; sensitive designs may need more DPWM bits.",
+        formulas: ["ADC_LSB = V_ADC_FS / (2^ADC_BITS - 1)", "DPWM duty step = 1 / 2^DPWM_BITS", "D_quantized = round(D_cmd * 2^DPWM_BITS) / 2^DPWM_BITS"],
+      },
+    ];
+
+  return (
+    <details className="calculation-steps digital-parameter-guide" open>
+      <summary>
+        <span>{isZh ? "數位控制器參數說明" : "Digital Controller Parameter Guide"}</span>
+        <small>
+          {isZh
+            ? "每個欄位會影響什麼、何時該調整，以及常見起始值。"
+            : "What each field affects, when to adjust it, and practical starting values."}
+        </small>
+      </summary>
+      <div className="digital-guide-layout">
+        <section className="delay-equation-panel">
+          <h3>{isZh ? "總輸出 delay 來自誰" : "Where total output delay comes from"}</h3>
+          <div className="formula-list">
+            <code>T_delay,total = T_compute + T_output + T_PWM + T_update_hold</code>
+            <code>T_compute = COMPUTE_DELAY * T_s</code>
+            <code>T_output = OUTPUT_DELAY * T_s</code>
+            <code>T_update_hold ~= (PWM_UPDATE_CYCLES - 1) * T_PWM / 2</code>
+            <code>phase_delay = -360 deg * f * T_delay,total</code>
+          </div>
+          <p>
+            {isZh
+              ? "其中 T_PWM 由 PWM carrier type 決定；如果每個 PWM 週期都更新，PWM_UPDATE_CYCLES = 1，T_update_hold = 0。"
+              : "T_PWM is selected by PWM carrier type. If duty updates every PWM cycle, PWM_UPDATE_CYCLES = 1 and T_update_hold = 0."}
+          </p>
+        </section>
+
+        <figure className="n-cycle-hold-figure" aria-label={isZh ? "N 週期更新延遲來源圖" : "N-cycle update delay derivation"}>
+          <h3>{isZh ? "為什麼 N 週期更新會多出 hold delay" : "Why N-cycle updates add hold delay"}</h3>
+          <div className="hold-timeline-grid">
+            <div className="hold-row-label">
+              <strong>N = 1</strong>
+              <span>{isZh ? "每週期更新" : "update every cycle"}</span>
+            </div>
+            <div className="hold-row baseline">
+              <div className="hold-cycle active">D0</div>
+              <div className="hold-cycle">D1</div>
+              <div className="hold-cycle">D2</div>
+              <div className="hold-cycle">D3</div>
+              <span className="hold-center baseline-center">T_PWM / 2</span>
+            </div>
+
+            <div className="hold-row-label">
+              <strong>N = 4</strong>
+              <span>{isZh ? "每 4 週期更新" : "update every 4 cycles"}</span>
+            </div>
+            <div className="hold-row n-cycle">
+              <div className="hold-cycle active">D0</div>
+              <div className="hold-cycle active">D0</div>
+              <div className="hold-cycle active">D0</div>
+              <div className="hold-cycle active">D0</div>
+              <span className="hold-center n-center">N*T_PWM / 2</span>
+            </div>
+
+            <div className="hold-row-label">
+              <strong>{isZh ? "額外延遲" : "extra delay"}</strong>
+              <span>{isZh ? "相對 N=1" : "relative to N=1"}</span>
+            </div>
+            <div className="hold-extra-row">
+              <span className="hold-extra baseline-point" />
+              <span className="hold-extra n-point" />
+              <span className="hold-extra-bracket" />
+              <code>(N - 1) * T_PWM / 2</code>
+            </div>
+          </div>
+          <figcaption>
+            {isZh
+              ? "每 N 個 PWM 週期才更新 duty 時，duty command 被 hold 在 N*T_PWM 的視窗內；低頻下等效作用點約在視窗中心。扣掉 N=1 原本就存在的 T_PWM/2，額外延遲就是 (N - 1)*T_PWM/2。"
+              : "When duty updates every N PWM cycles, the command is held across an N*T_PWM window. At low frequency, the equivalent action point is near the center. Subtract the N=1 baseline T_PWM/2 to get the extra delay: (N - 1)*T_PWM/2."}
+          </figcaption>
+        </figure>
+
+        <figure className="system-flow-figure" aria-label={isZh ? "數位控制器整體系統流程圖" : "Digital controller system flow"}>
+          <h3>{isZh ? "整個系統流程圖" : "Complete system flow"}</h3>
+          <div className="system-flow-row">
+            <div className="system-flow-node plant">
+              <strong>{isZh ? "功率級" : "Power stage"}</strong>
+              <span>G_p(s)</span>
+            </div>
+            <div className="system-flow-arrow feedback" />
+            <div className="system-flow-node adc">
+              <strong>ADC</strong>
+              <span>{isZh ? "取樣 / 量化" : "sample / quantize"}</span>
+            </div>
+            <div className="system-flow-arrow" />
+            <div className="system-flow-node compensator">
+              <strong>G_c(z)</strong>
+              <span>{isZh ? "IIR 補償器" : "IIR compensator"}</span>
+            </div>
+            <div className="system-flow-arrow" />
+            <div className="system-flow-node clamp">
+              <strong>Clamp</strong>
+              <span>DUTY_MIN/MAX</span>
+            </div>
+            <div className="system-flow-arrow" />
+            <div className="system-flow-node dpwm">
+              <strong>DPWM</strong>
+              <span>{isZh ? "解析度 / shadow load" : "resolution / shadow load"}</span>
+            </div>
+            <div className="system-flow-arrow" />
+            <div className="system-flow-node pwm">
+              <strong>PWM</strong>
+              <span>{isZh ? "carrier delay" : "carrier delay"}</span>
+            </div>
+          </div>
+          <figcaption>
+            {isZh
+              ? "小訊號迴路比較時，工具把 G_c(z)、PWM delay、功率級 G_p(s) 組成 T(z)，再計算含 delay 的 phase margin。"
+              : "For small-signal loop comparison, the tool combines G_c(z), PWM delay, and G_p(s) into T(z), then recomputes delay-aware phase margin."}
+          </figcaption>
+        </figure>
+
+        <figure className="digital-delay-figure" aria-label={isZh ? "數位控制器延遲流程圖" : "Digital controller delay flow"}>
+          <div className="delay-flow-row">
+            <div className="delay-flow-node sample">
+              <strong>ADC</strong>
+              <span>{isZh ? "取樣" : "sample"}</span>
+            </div>
+            <div className="delay-flow-segment compute">
+              <span>
+                {isZh ? "計算延遲" : "compute delay"}
+                <small>COMPUTE_DELAY</small>
+              </span>
+            </div>
+            <div className="delay-flow-node calc">
+              <strong>IIR</strong>
+              <span>{isZh ? "算 duty" : "duty calc"}</span>
+            </div>
+            <div className="delay-flow-segment output">
+              <span>
+                {isZh ? "輸出延遲" : "output delay"}
+                <small>OUTPUT_DELAY</small>
+              </span>
+            </div>
+            <div className="delay-flow-node pwm">
+              <strong>PWM</strong>
+              <span>{isZh ? "載入" : "load"}</span>
+            </div>
+            <div className="delay-flow-segment carrier">
+              <span>
+                {isZh ? "carrier delay" : "carrier delay"}
+                <small>f_PWM + carrier type</small>
+              </span>
+            </div>
+            <div className="delay-flow-node duty">
+              <strong>DUTY</strong>
+              <span>{isZh ? "生效" : "active"}</span>
+            </div>
+            <div className="delay-flow-segment update-hold">
+              <span>
+                {isZh ? "N 週期 hold" : "N-cycle hold"}
+                <small>PWM_UPDATE_CYCLES</small>
+              </span>
+            </div>
+          </div>
+          <div className="delay-waveform" aria-hidden="true">
+            <span className="wave-label">CLK</span>
+            <div className="wave-line clock" />
+            <span className="wave-label">PWM</span>
+            <div className="wave-line pwm-wave" />
+          </div>
+          <figcaption>
+            {isZh
+              ? "總延遲 = 計算延遲 + 輸出延遲 + PWM modulator 等效延遲 + N 週期更新 hold delay；Bode 圖會把它轉成相位落後。"
+              : "Total delay = compute delay + output delay + PWM modulator delay + N-cycle update hold delay; the Bode plot converts it into phase lag."}
+          </figcaption>
+        </figure>
+
+        <section className="pwm-carrier-gallery" aria-label={isZh ? "PWM carrier type 圖示" : "PWM carrier type diagrams"}>
+          <h3>{isZh ? "PWM carrier type 圖示" : "PWM carrier type diagrams"}</h3>
+          <div className="pwm-carrier-grid">
+            {pwmCarrierGuideItems.map((item) => (
+              <article className={`pwm-carrier-card ${item.key}`} key={item.key}>
+                <PwmCarrierMiniDiagram mode={item.key} />
+                <strong>{item.title}</strong>
+                <code>{item.formula}</code>
+                <p>{isZh ? item.noteZh : item.noteEn}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <div className="parameter-guide-grid">
+          {parameters.map((parameter) => (
+            <article className={`parameter-guide-card delay-impact-${parameter.delayImpact}`} key={parameter.key}>
+              <h3>{parameter.title}</h3>
+              <span className={`delay-impact-badge ${parameter.delayImpact}`}>
+                {delayImpactText[parameter.delayImpact]}
+              </span>
+              {parameter.delayLink && <span className="delay-link-badge">{parameter.delayLink}</span>}
+              <dl>
+                <div>
+                  <dt>{isZh ? "公式" : "Formula"}</dt>
+                  <dd className="formula-list">
+                    {parameter.formulas.map((formula) => (
+                      <code key={formula}>{formula}</code>
+                    ))}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{isZh ? "影響" : "Affects"}</dt>
+                  <dd>{parameter.affects}</dd>
+                </div>
+                <div>
+                  <dt>{isZh ? "何時調整" : "Adjust when"}</dt>
+                  <dd>{parameter.adjustWhen}</dd>
+                </div>
+                <div>
+                  <dt>{isZh ? "何時不用動" : "Leave it when"}</dt>
+                  <dd>{parameter.leaveWhen}</dd>
+                </div>
+                <div>
+                  <dt>{isZh ? "例子" : "Example"}</dt>
+                  <dd>{parameter.example}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function PwmCarrierMiniDiagram({ mode }: { mode: PwmCarrierMode }) {
+  return (
+    <div className={`pwm-mini-diagram ${mode}`} aria-hidden="true">
+      <div className="carrier-shape" />
+      <div className="compare-level" />
+      <div className="pulse-strip">
+        <span />
+        <span />
+      </div>
+    </div>
+  );
 }
 
 function SimplisDllGuide({ locale, order }: { locale: Locale; order: number }) {
