@@ -1,5 +1,7 @@
 # AI Rules (personal, do not share)
 CLAUDE.md
+AGENTS.md
+rules/
 
 # Environment variables
 .env

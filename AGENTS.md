@@ -14,11 +14,11 @@ Supported usage: ChatGPT, Claude, Codex, Cursor, GitHub Copilot, AI coding agent
 
 ---
 
-@C:/Users/0662TX/.claude/rules/initialization.md
-@C:/Users/0662TX/.claude/rules/github.md
-@C:/Users/0662TX/.claude/rules/workflow.md
-@C:/Users/0662TX/.claude/rules/code-style.md
-@C:/Users/0662TX/.claude/rules/architecture.md
-@C:/Users/0662TX/.claude/rules/multi-agent.md
-@C:/Users/0662TX/.claude/rules/security.md
-@C:/Users/0662TX/.claude/rules/testing.md
+@./rules/initialization.md
+@./rules/github.md
+@./rules/workflow.md
+@./rules/code-style.md
+@./rules/architecture.md
+@./rules/multi-agent.md
+@./rules/security.md
+@./rules/testing.md
