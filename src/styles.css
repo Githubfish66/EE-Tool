@@ -373,6 +373,22 @@ h1 {
   color: var(--ink);
 }
 
+.rlc-frame-retry {
+  justify-self: center;
+  min-height: 38px;
+  border: 1px solid #0f766e;
+  border-radius: 8px;
+  padding: 0 16px;
+  background: #0f766e;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.rlc-frame-retry:hover {
+  background: #115e59;
+}
+
 .workspace.verilog-workspace {
   grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
 }

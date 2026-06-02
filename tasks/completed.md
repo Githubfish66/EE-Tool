@@ -1,5 +1,23 @@
 # Completed
 
+## Split Analog And Digital Controller Pages
+
+- Completion date: 2026-06-02
+- Modified files:
+  - `src/App.tsx`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Split the loop compensation workflow into separate Analog Compensator and Digital Controller navigation pages. The analog page now focuses on Bode import, Type I/II/III design, component values, analog Bode plots, and calculation steps. The digital page reuses the latest analog `Gc(s)` result, owns sampling/PWM/delay/ADC/DPWM settings, shows a clear empty state when analog analysis has not run, and warns when analog settings changed after the last run. Validation passed with `npm run lint`, `npx vitest run src/lib/digitalCompensatorCalculator.test.ts src/lib/compensatorCalculator.test.ts`, and `npm run build`.
+
+## Add RLC Backend Retry
+
+- Completion date: 2026-06-02
+- Modified files:
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/completed.md`
+- Notes: Updated the RLC Symbolic Analyzer availability check so a temporary backend miss does not leave the page permanently stuck on the backend-not-connected state. The workspace now retries `/rlc-original/` automatically and provides a manual reconnect button. Started the local FastAPI backend and confirmed both `:8000` and Vite proxy `:5173` return `Netlist Solver`. Validation passed with `npm run build`, `npm run test`, and `.venv\Scripts\python.exe -m pytest -q backend\tests`.
+
 ## Add RLC Backend Availability State
 
 - Completion date: 2026-05-27

@@ -85,6 +85,7 @@ type Locale = "zh" | "en";
 type FeatureId =
   | "bootstrap"
   | "compensator"
+  | "digital-controller"
   | "simetrix"
   | "mosfet-thermal"
   | "simetrix-guide"
@@ -162,6 +163,7 @@ const pwmCarrierLabels: Record<PwmCarrierMode, string> = {
 const featureIcons: Record<NavFeatureId, LucideIcon> = {
   bootstrap: Calculator,
   compensator: Gauge,
+  "digital-controller": CircuitBoard,
   simetrix: FileCode2,
   "mosfet-thermal": Thermometer,
   "simetrix-guide": BookOpenText,
@@ -175,6 +177,7 @@ const featureIcons: Record<NavFeatureId, LucideIcon> = {
 const enabledFeatureIds: FeatureId[] = [
   "bootstrap",
   "compensator",
+  "digital-controller",
   "simetrix",
   "mosfet-thermal",
   "verilog-a",
@@ -188,7 +191,7 @@ const featureNavGroups: NavGroup[] = [
       zh: "周邊電路計算",
       en: "Peripheral Circuit Calculations",
     },
-    items: ["bootstrap", "compensator", "gate", "rc", "loss"],
+    items: ["bootstrap", "compensator", "digital-controller", "gate", "rc", "loss"],
   },
   {
     title: {
@@ -280,6 +283,10 @@ const translations = {
     compensatorTitle: "迴路補償設計器",
     compensatorSubtitle:
       "匯入 power stage Bode plot，依 Chapter 5 非隔離 op amp 補償器與 Appendix 5B k-factor 方法計算 Type I/II/III 元件。",
+    digitalControllerEyebrow: "數位控制設計",
+    digitalControllerTitle: "數位控制器設計器",
+    digitalControllerSubtitle:
+      "沿用最新的類比補償器結果，設定取樣、PWM、delay 與量化參數，並檢查數位 Bode、aliasing 與 SIMPLIS DLL 輸出。",
     simetrixEyebrow: "SIMetrix 工作流",
     simetrixTitle: "SIMetrix 損耗掃描腳本",
     simetrixSubtitle:
@@ -355,6 +362,7 @@ const translations = {
     features: {
       bootstrap: "Bootstrap 驅動電容設計",
       compensator: "迴路補償設計器",
+      "digital-controller": "數位控制器設計器",
       simetrix: "SIMetrix 損耗掃描腳本",
       "mosfet-thermal": "MOSFET 接面溫度迭代",
       "simetrix-guide": "SIMetrix 暫態加速指南",
@@ -374,6 +382,10 @@ const translations = {
     compensatorTitle: "Loop Compensation Designer",
     compensatorSubtitle:
       "Import a power-stage Bode plot, then calculate Type I/II/III non-isolated op amp compensator parts with Chapter 5 and Appendix 5B k-factor equations.",
+    digitalControllerEyebrow: "Digital control design",
+    digitalControllerTitle: "Digital Controller Designer",
+    digitalControllerSubtitle:
+      "Convert the latest analog compensator into a sampled controller, then inspect delay, PWM aliasing, digital Bode plots, and SIMPLIS DLL outputs.",
     simetrixEyebrow: "SIMetrix workflow",
     simetrixTitle: "SIMetrix Loss Sweep Script",
     simetrixSubtitle:
@@ -449,6 +461,7 @@ const translations = {
     features: {
       bootstrap: "Bootstrap driver capacitor",
       compensator: "Loop compensation designer",
+      "digital-controller": "Digital controller designer",
       simetrix: "SIMetrix loss sweep script",
       "mosfet-thermal": "MOSFET Tj iteration",
       "simetrix-guide": "SIMetrix transient speed guide",
@@ -829,6 +842,13 @@ function getFeatureHeader(feature: FeatureId, locale: Locale) {
       subtitle: t.compensatorSubtitle,
     };
   }
+  if (feature === "digital-controller") {
+    return {
+      eyebrow: t.digitalControllerEyebrow,
+      title: t.digitalControllerTitle,
+      subtitle: t.digitalControllerSubtitle,
+    };
+  }
   if (feature === "verilog-a") {
     return {
       eyebrow: t.verilogAEyebrow,
@@ -941,6 +961,10 @@ export function App() {
     setCompAnalysisDirty(true);
   }
 
+  function updateDigitalValue(key: string, value: number) {
+    setCompValues((current) => ({ ...current, [key]: value }));
+  }
+
   function updateCompUnit(key: string, nextUnit: string) {
     const oldUnit = compUnits[key];
     const siValue = toSi(compValues[key], oldUnit);
@@ -948,6 +972,14 @@ export function App() {
     setCompUnits((current) => ({ ...current, [key]: nextUnit }));
     setCompValues((current) => ({ ...current, [key]: Number(nextValue.toPrecision(8)) }));
     setCompAnalysisDirty(true);
+  }
+
+  function updateDigitalUnit(key: string, nextUnit: string) {
+    const oldUnit = compUnits[key];
+    const siValue = toSi(compValues[key], oldUnit);
+    const nextValue = fromSi(siValue, nextUnit);
+    setCompUnits((current) => ({ ...current, [key]: nextUnit }));
+    setCompValues((current) => ({ ...current, [key]: Number(nextValue.toPrecision(8)) }));
   }
 
   function updateCsv(text: string) {
@@ -1252,7 +1284,6 @@ export function App() {
             locale={locale}
             compensatorType={compensatorType}
             compensatorMode={compensatorMode}
-            pwmCarrier={pwmCarrier}
             values={compValues}
             units={compUnits}
             csvText={csvText}
@@ -1268,16 +1299,25 @@ export function App() {
               setCompensatorMode(nextMode);
               setCompAnalysisDirty(true);
             }}
-            onPwmCarrierChange={(nextCarrier) => {
-              setPwmCarrier(nextCarrier);
-              setCompAnalysisDirty(true);
-            }}
             onValueChange={updateCompValue}
             onUnitChange={updateCompUnit}
             onCsvChange={updateCsv}
             onFileImport={importCsvFile}
             onReset={resetCompensator}
             onRun={runCompensatorAnalysis}
+          />
+        ) : feature === "digital-controller" ? (
+          <DigitalControllerWorkspace
+            locale={locale}
+            analogResult={compAnalysis}
+            analogDirty={compAnalysisDirty}
+            values={compValues}
+            units={compUnits}
+            pwmCarrier={pwmCarrier}
+            onPwmCarrierChange={setPwmCarrier}
+            onValueChange={updateDigitalValue}
+            onUnitChange={updateDigitalUnit}
+            onOpenAnalog={() => setFeature("compensator")}
           />
         ) : feature === "simetrix" ? (
           <SimetrixWorkspace
@@ -1330,29 +1370,47 @@ export function App() {
 
 function RlcSolverWorkspace({ locale }: { locale: Locale }) {
   const [frameStatus, setFrameStatus] = useState<"checking" | "ready" | "unavailable">("checking");
+  const [probeAttempt, setProbeAttempt] = useState(0);
   const frameSrc = "/rlc-original/?v=workbench-fill-result";
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: number | undefined;
     setFrameStatus("checking");
+
+    function queueRetry() {
+      retryTimer = window.setTimeout(() => {
+        setProbeAttempt((current) => current + 1);
+      }, 2500);
+    }
+
     fetch(`${frameSrc}&probe=${Date.now()}`, { cache: "no-store" })
       .then(async (response) => {
         const html = await response.text();
         if (cancelled) {
           return;
         }
-        setFrameStatus(response.ok && html.includes("RLC Symbolic Solver") ? "ready" : "unavailable");
+        if (response.ok && html.includes("RLC Symbolic Solver")) {
+          setFrameStatus("ready");
+        } else {
+          setFrameStatus("unavailable");
+          queueRetry();
+        }
       })
       .catch(() => {
         if (!cancelled) {
           setFrameStatus("unavailable");
+          queueRetry();
         }
       });
 
     return () => {
       cancelled = true;
+      if (retryTimer !== undefined) {
+        window.clearTimeout(retryTimer);
+      }
     };
-  }, [frameSrc]);
+  }, [frameSrc, probeAttempt]);
 
   if (frameStatus !== "ready") {
     return (
@@ -1378,6 +1436,11 @@ function RlcSolverWorkspace({ locale }: { locale: Locale }) {
           </p>
           {frameStatus === "unavailable" ? (
             <code>{".\\.venv\\Scripts\\python.exe -m backend.run_api"}</code>
+          ) : null}
+          {frameStatus === "unavailable" ? (
+            <button className="rlc-frame-retry" type="button" onClick={() => setProbeAttempt((current) => current + 1)}>
+              {locale === "zh" ? "重新連線" : "Retry connection"}
+            </button>
           ) : null}
         </div>
       </section>
@@ -2702,7 +2765,6 @@ function CompensatorWorkspace({
   locale,
   compensatorType,
   compensatorMode,
-  pwmCarrier,
   values,
   units,
   csvText,
@@ -2712,7 +2774,6 @@ function CompensatorWorkspace({
   analysisDirty,
   onCompensatorTypeChange,
   onCompensatorModeChange,
-  onPwmCarrierChange,
   onValueChange,
   onUnitChange,
   onCsvChange,
@@ -2723,7 +2784,6 @@ function CompensatorWorkspace({
   locale: Locale;
   compensatorType: CompensatorType;
   compensatorMode: CompensatorDesignMode;
-  pwmCarrier: PwmCarrierMode;
   values: NumericState;
   units: UnitState;
   csvText: string;
@@ -2733,7 +2793,6 @@ function CompensatorWorkspace({
   analysisDirty: boolean;
   onCompensatorTypeChange: (type: CompensatorType) => void;
   onCompensatorModeChange: (mode: CompensatorDesignMode) => void;
-  onPwmCarrierChange: (carrier: PwmCarrierMode) => void;
   onValueChange: (key: string, value: number) => void;
   onUnitChange: (key: string, value: string) => void;
   onCsvChange: (text: string) => void;
@@ -2837,42 +2896,6 @@ function CompensatorWorkspace({
             </div>
           </section>
 
-          <section className="subpanel">
-            <h3>
-              <CircuitBoard aria-hidden="true" size={16} />
-              Digital controller
-            </h3>
-            <p>Tustin conversion, duty clamp, delay, and quantization settings for SIMPLIS C-Code DLL output.</p>
-            <div className="field-grid">
-              <NumberField fieldKey="samplingFrequency" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-              <NumberField fieldKey="pwmFrequency" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-              <NumberField fieldKey="pwmUpdateCycles" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-              <label className="number-field">
-                <span>{locale === "zh" ? "PWM carrier type" : "PWM carrier type"}</span>
-                <div>
-                  <select
-                    aria-label="PWM carrier type"
-                    value={pwmCarrier}
-                    onChange={(event) => onPwmCarrierChange(event.target.value as PwmCarrierMode)}
-                  >
-                    {(Object.keys(pwmCarrierLabels) as PwmCarrierMode[]).map((carrier) => (
-                      <option key={carrier} value={carrier}>
-                        {pwmCarrierLabels[carrier]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </label>
-              <NumberField fieldKey="dutyMin" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-              <NumberField fieldKey="dutyMax" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-              <NumberField fieldKey="initialDuty" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-              <NumberField fieldKey="computationDelaySamples" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-              <NumberField fieldKey="outputDelaySamples" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-              <NumberField fieldKey="adcBits" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-              <NumberField fieldKey="dpwmBits" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-            </div>
-          </section>
-
           <div className="analysis-actions">
             <button
               className="run-analysis"
@@ -2891,15 +2914,141 @@ function CompensatorWorkspace({
             result={analysis}
             locale={locale}
             dirty={analysisDirty}
-            values={values}
-            units={units}
-            pwmCarrier={pwmCarrier}
           />
         ) : (
           <PendingPanel locale={locale} />
         )}
       </section>
     </>
+  );
+}
+
+function DigitalControllerWorkspace({
+  locale,
+  analogResult,
+  analogDirty,
+  values,
+  units,
+  pwmCarrier,
+  onPwmCarrierChange,
+  onValueChange,
+  onUnitChange,
+  onOpenAnalog,
+}: {
+  locale: Locale;
+  analogResult: CompensatorResult | null;
+  analogDirty: boolean;
+  values: NumericState;
+  units: UnitState;
+  pwmCarrier: PwmCarrierMode;
+  onPwmCarrierChange: (carrier: PwmCarrierMode) => void;
+  onValueChange: (key: string, value: number) => void;
+  onUnitChange: (key: string, value: string) => void;
+  onOpenAnalog: () => void;
+}) {
+  const isZh = locale === "zh";
+  const digitalResult = analogResult
+    ? calculateDigitalCompensator({
+      analogResult,
+      samplingFrequency: toSi(values.samplingFrequency, units.samplingFrequency),
+      pwmFrequency: toSi(values.pwmFrequency, units.pwmFrequency),
+      pwmUpdateCycles: toSi(values.pwmUpdateCycles, units.pwmUpdateCycles),
+      dutyMin: toSi(values.dutyMin, units.dutyMin),
+      dutyMax: toSi(values.dutyMax, units.dutyMax),
+      initialDuty: toSi(values.initialDuty, units.initialDuty),
+      computationDelaySamples: toSi(values.computationDelaySamples, units.computationDelaySamples),
+      outputDelaySamples: toSi(values.outputDelaySamples, units.outputDelaySamples),
+      pwmCarrier,
+      adcBits: toSi(values.adcBits, units.adcBits),
+      dpwmBits: toSi(values.dpwmBits, units.dpwmBits),
+      method: "tustin",
+    })
+    : null;
+
+  return (
+    <section className="workspace compensator-workspace digital-controller-workspace">
+      <form className="input-panel compensator-input">
+        <div className="panel-heading">
+          <h2>{isZh ? "數位控制器參數" : "Digital Controller Parameters"}</h2>
+          <button type="button" onClick={onOpenAnalog}>
+            <Gauge aria-hidden="true" size={16} />
+            {isZh ? "開啟類比補償器" : "Open analog compensator"}
+          </button>
+        </div>
+
+        <section className="subpanel">
+          <h3>
+            <CircuitBoard aria-hidden="true" size={16} />
+            {isZh ? "取樣、PWM 與 delay" : "Sampling, PWM, And Delay"}
+          </h3>
+          <p>
+            {isZh
+              ? "這裡只調整數位控制器實作參數；類比補償器的 Gc(s) 請回到類比頁面設計。"
+              : "These settings only affect the digital implementation. Design the analog Gc(s) on the analog compensator page."}
+          </p>
+          <div className="field-grid">
+            <NumberField fieldKey="samplingFrequency" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <NumberField fieldKey="pwmFrequency" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <NumberField fieldKey="pwmUpdateCycles" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <label className="number-field">
+              <span>PWM carrier type</span>
+              <div>
+                <select
+                  aria-label="PWM carrier type"
+                  value={pwmCarrier}
+                  onChange={(event) => onPwmCarrierChange(event.target.value as PwmCarrierMode)}
+                >
+                  {(Object.keys(pwmCarrierLabels) as PwmCarrierMode[]).map((carrier) => (
+                    <option key={carrier} value={carrier}>
+                      {pwmCarrierLabels[carrier]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </label>
+            <NumberField fieldKey="dutyMin" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <NumberField fieldKey="dutyMax" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <NumberField fieldKey="initialDuty" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <NumberField fieldKey="computationDelaySamples" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <NumberField fieldKey="outputDelaySamples" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <NumberField fieldKey="adcBits" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <NumberField fieldKey="dpwmBits" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+          </div>
+        </section>
+      </form>
+
+      {analogResult && digitalResult ? (
+        <section className="result-panel">
+          {analogDirty && (
+            <div className="status warning">
+              {isZh
+                ? "類比補償器參數已變更。請回到類比頁重新執行分析，數位結果才會使用最新 Gc(s)。"
+                : "Analog compensator settings changed. Re-run the analog analysis so the digital result uses the latest Gc(s)."}
+            </div>
+          )}
+          <div className="summary-strip">
+            <Metric label="Source" value={compensatorTypeLabels[analogResult.compensatorType]} />
+            <Metric label="f_C" value={formatFrequency(analogResult.crossoverFrequency)} />
+            <Metric label="Analog PM" value={formatOptionalPhase(analogResult.stabilityMargins.phaseMarginDeg)} />
+            <Metric label="f_s" value={formatDigitalFrequency(digitalResult.samplingFrequency)} />
+          </div>
+          <DigitalCompensatorPanel analogResult={analogResult} result={digitalResult} locale={locale} />
+        </section>
+      ) : (
+        <section className="result-panel pending-panel">
+          <h2>{isZh ? "請先完成類比補償器設計" : "Run The Analog Compensator First"}</h2>
+          <p>
+            {isZh
+              ? "數位控制器會從類比補償器的 Gc(s) 離散化而來。請先到類比補償器頁匯入 Bode、設定 Type I/II/III，並執行分析。"
+              : "The digital controller is discretized from the analog Gc(s). Open the analog compensator page, import the Bode data, choose Type I/II/III, and run analysis first."}
+          </p>
+          <button className="run-analysis" type="button" onClick={onOpenAnalog}>
+            <Gauge aria-hidden="true" size={18} />
+            {isZh ? "前往類比補償器" : "Go To Analog Compensator"}
+          </button>
+        </section>
+      )}
+    </section>
   );
 }
 
@@ -3122,34 +3271,13 @@ function CompensatorResultPanel({
   result,
   locale,
   dirty,
-  values,
-  units,
-  pwmCarrier,
 }: {
   result: CompensatorResult;
   locale: Locale;
   dirty: boolean;
-  values: NumericState;
-  units: UnitState;
-  pwmCarrier: PwmCarrierMode;
 }) {
   const t = translations[locale];
   const dangerCount = result.messages.filter((message) => message.severity === "danger").length;
-  const digitalResult = calculateDigitalCompensator({
-    analogResult: result,
-    samplingFrequency: toSi(values.samplingFrequency, units.samplingFrequency),
-    pwmFrequency: toSi(values.pwmFrequency, units.pwmFrequency),
-    pwmUpdateCycles: toSi(values.pwmUpdateCycles, units.pwmUpdateCycles),
-    dutyMin: toSi(values.dutyMin, units.dutyMin),
-    dutyMax: toSi(values.dutyMax, units.dutyMax),
-    initialDuty: toSi(values.initialDuty, units.initialDuty),
-    computationDelaySamples: toSi(values.computationDelaySamples, units.computationDelaySamples),
-    outputDelaySamples: toSi(values.outputDelaySamples, units.outputDelaySamples),
-    pwmCarrier,
-    adcBits: toSi(values.adcBits, units.adcBits),
-    dpwmBits: toSi(values.dpwmBits, units.dpwmBits),
-    method: "tustin",
-  });
   return (
     <section className="result-panel">
       {dirty && <div className="status warning">{t.staleNotice}</div>}
@@ -3201,8 +3329,6 @@ function CompensatorResultPanel({
           </section>
         </div>
       </section>
-
-      <DigitalCompensatorPanel analogResult={result} result={digitalResult} locale={locale} />
 
       <CalculationSteps result={result} locale={locale} />
 
