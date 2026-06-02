@@ -1,5 +1,23 @@
 # Completed
 
+## Digital Controller Draft Input Optimization
+
+- Completion date: 2026-06-02
+- Modified files:
+  - `src/App.tsx`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Further reduced digital controller page input lag by moving editable digital parameters into local draft state. Typing in `f_s`, `f_PWM`, delay, duty, ADC, DPWM, or PWM carrier now avoids updating top-level `App` state and keeps the heavy Plotly result panel stable. The draft values are synchronized back to the shared state only when the user clicks "Run Digital Analysis" / "更新數位分析". Wrapped the digital result panel in `React.memo` so unchanged analysis results do not rerender while editing inputs. Validation passed with `npm run lint`, `npx vitest run src/lib/digitalCompensatorCalculator.test.ts src/lib/compensatorCalculator.test.ts`, and `npm run build`.
+
+## Digital Controller Render Optimization
+
+- Completion date: 2026-06-02
+- Modified files:
+  - `src/App.tsx`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Reduced digital controller page input lag by memoizing the expensive digital analysis and switching parameter edits to a manual refresh flow. Changing `f_s`, `f_PWM`, PWM carrier, delay, duty, ADC, or DPWM settings now marks the digital result stale instead of recalculating Bode/delay/aliasing/SIMPLIS output on every keystroke. Users refresh the result with the new "Run Digital Analysis" / "更新數位分析" button. Validation passed with `npm run lint`, `npx vitest run src/lib/digitalCompensatorCalculator.test.ts src/lib/compensatorCalculator.test.ts`, and `npm run build`.
+
 ## Split Analog And Digital Controller Pages
 
 - Completion date: 2026-06-02

@@ -1,4 +1,4 @@
-import { createElement, useEffect, useState } from "react";
+import { createElement, memo, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import createPlotlyComponent from "react-plotly.js/factory";
 import type { Config, Data, Layout, Shape } from "plotly.js";
@@ -159,6 +159,19 @@ const pwmCarrierLabels: Record<PwmCarrierMode, string> = {
   "leading-edge": "Leading-edge sawtooth",
   symmetric: "Symmetric PWM",
 };
+
+const digitalParameterKeys = [
+  "samplingFrequency",
+  "pwmFrequency",
+  "pwmUpdateCycles",
+  "dutyMin",
+  "dutyMax",
+  "initialDuty",
+  "computationDelaySamples",
+  "outputDelaySamples",
+  "adcBits",
+  "dpwmBits",
+];
 
 const featureIcons: Record<NavFeatureId, LucideIcon> = {
   bootstrap: Calculator,
@@ -2947,23 +2960,67 @@ function DigitalControllerWorkspace({
   onOpenAnalog: () => void;
 }) {
   const isZh = locale === "zh";
-  const digitalResult = analogResult
-    ? calculateDigitalCompensator({
-      analogResult,
-      samplingFrequency: toSi(values.samplingFrequency, units.samplingFrequency),
-      pwmFrequency: toSi(values.pwmFrequency, units.pwmFrequency),
-      pwmUpdateCycles: toSi(values.pwmUpdateCycles, units.pwmUpdateCycles),
-      dutyMin: toSi(values.dutyMin, units.dutyMin),
-      dutyMax: toSi(values.dutyMax, units.dutyMax),
-      initialDuty: toSi(values.initialDuty, units.initialDuty),
-      computationDelaySamples: toSi(values.computationDelaySamples, units.computationDelaySamples),
-      outputDelaySamples: toSi(values.outputDelaySamples, units.outputDelaySamples),
-      pwmCarrier,
-      adcBits: toSi(values.adcBits, units.adcBits),
-      dpwmBits: toSi(values.dpwmBits, units.dpwmBits),
-      method: "tustin",
-    })
-    : null;
+  const [draftValues, setDraftValues] = useState<NumericState>(values);
+  const [draftUnits, setDraftUnits] = useState<UnitState>(units);
+  const [draftPwmCarrier, setDraftPwmCarrier] = useState<PwmCarrierMode>(pwmCarrier);
+  const [digitalRevision, setDigitalRevision] = useState(0);
+  const [digitalDirty, setDigitalDirty] = useState(false);
+  const digitalResult = useMemo(
+    () =>
+      analogResult
+        ? calculateDigitalCompensator({
+          analogResult,
+          samplingFrequency: toSi(draftValues.samplingFrequency, draftUnits.samplingFrequency),
+          pwmFrequency: toSi(draftValues.pwmFrequency, draftUnits.pwmFrequency),
+          pwmUpdateCycles: toSi(draftValues.pwmUpdateCycles, draftUnits.pwmUpdateCycles),
+          dutyMin: toSi(draftValues.dutyMin, draftUnits.dutyMin),
+          dutyMax: toSi(draftValues.dutyMax, draftUnits.dutyMax),
+          initialDuty: toSi(draftValues.initialDuty, draftUnits.initialDuty),
+          computationDelaySamples: toSi(draftValues.computationDelaySamples, draftUnits.computationDelaySamples),
+          outputDelaySamples: toSi(draftValues.outputDelaySamples, draftUnits.outputDelaySamples),
+          pwmCarrier: draftPwmCarrier,
+          adcBits: toSi(draftValues.adcBits, draftUnits.adcBits),
+          dpwmBits: toSi(draftValues.dpwmBits, draftUnits.dpwmBits),
+          method: "tustin",
+        })
+        : null,
+    [analogResult, digitalRevision],
+  );
+
+  useEffect(() => {
+    setDigitalDirty(false);
+    setDraftValues(values);
+    setDraftUnits(units);
+    setDraftPwmCarrier(pwmCarrier);
+  }, [analogResult]);
+
+  function handleValueChange(key: string, value: number) {
+    setDraftValues((current) => ({ ...current, [key]: value }));
+    setDigitalDirty(true);
+  }
+
+  function handleUnitChange(key: string, value: string) {
+    const siValue = toSi(draftValues[key], draftUnits[key]);
+    const nextValue = fromSi(siValue, value);
+    setDraftUnits((current) => ({ ...current, [key]: value }));
+    setDraftValues((current) => ({ ...current, [key]: Number(nextValue.toPrecision(8)) }));
+    setDigitalDirty(true);
+  }
+
+  function handlePwmCarrierChange(carrier: PwmCarrierMode) {
+    setDraftPwmCarrier(carrier);
+    setDigitalDirty(true);
+  }
+
+  function runDigitalAnalysis() {
+    digitalParameterKeys.forEach((key) => {
+      onValueChange(key, draftValues[key]);
+      onUnitChange(key, draftUnits[key]);
+    });
+    onPwmCarrierChange(draftPwmCarrier);
+    setDigitalRevision((current) => current + 1);
+    setDigitalDirty(false);
+  }
 
   return (
     <section className="workspace compensator-workspace digital-controller-workspace">
@@ -2987,16 +3044,16 @@ function DigitalControllerWorkspace({
               : "These settings only affect the digital implementation. Design the analog Gc(s) on the analog compensator page."}
           </p>
           <div className="field-grid">
-            <NumberField fieldKey="samplingFrequency" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-            <NumberField fieldKey="pwmFrequency" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-            <NumberField fieldKey="pwmUpdateCycles" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <NumberField fieldKey="samplingFrequency" locale={locale} values={draftValues} units={draftUnits} onChange={handleValueChange} onUnitChange={handleUnitChange} />
+            <NumberField fieldKey="pwmFrequency" locale={locale} values={draftValues} units={draftUnits} onChange={handleValueChange} onUnitChange={handleUnitChange} />
+            <NumberField fieldKey="pwmUpdateCycles" locale={locale} values={draftValues} units={draftUnits} onChange={handleValueChange} onUnitChange={handleUnitChange} />
             <label className="number-field">
               <span>PWM carrier type</span>
               <div>
                 <select
                   aria-label="PWM carrier type"
-                  value={pwmCarrier}
-                  onChange={(event) => onPwmCarrierChange(event.target.value as PwmCarrierMode)}
+                  value={draftPwmCarrier}
+                  onChange={(event) => handlePwmCarrierChange(event.target.value as PwmCarrierMode)}
                 >
                   {(Object.keys(pwmCarrierLabels) as PwmCarrierMode[]).map((carrier) => (
                     <option key={carrier} value={carrier}>
@@ -3006,15 +3063,22 @@ function DigitalControllerWorkspace({
                 </select>
               </div>
             </label>
-            <NumberField fieldKey="dutyMin" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-            <NumberField fieldKey="dutyMax" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-            <NumberField fieldKey="initialDuty" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-            <NumberField fieldKey="computationDelaySamples" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-            <NumberField fieldKey="outputDelaySamples" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-            <NumberField fieldKey="adcBits" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
-            <NumberField fieldKey="dpwmBits" locale={locale} values={values} units={units} onChange={onValueChange} onUnitChange={onUnitChange} />
+            <NumberField fieldKey="dutyMin" locale={locale} values={draftValues} units={draftUnits} onChange={handleValueChange} onUnitChange={handleUnitChange} />
+            <NumberField fieldKey="dutyMax" locale={locale} values={draftValues} units={draftUnits} onChange={handleValueChange} onUnitChange={handleUnitChange} />
+            <NumberField fieldKey="initialDuty" locale={locale} values={draftValues} units={draftUnits} onChange={handleValueChange} onUnitChange={handleUnitChange} />
+            <NumberField fieldKey="computationDelaySamples" locale={locale} values={draftValues} units={draftUnits} onChange={handleValueChange} onUnitChange={handleUnitChange} />
+            <NumberField fieldKey="outputDelaySamples" locale={locale} values={draftValues} units={draftUnits} onChange={handleValueChange} onUnitChange={handleUnitChange} />
+            <NumberField fieldKey="adcBits" locale={locale} values={draftValues} units={draftUnits} onChange={handleValueChange} onUnitChange={handleUnitChange} />
+            <NumberField fieldKey="dpwmBits" locale={locale} values={draftValues} units={draftUnits} onChange={handleValueChange} onUnitChange={handleUnitChange} />
           </div>
         </section>
+
+        <div className="analysis-actions">
+          <button className="run-analysis" type="button" onClick={runDigitalAnalysis} disabled={!analogResult || !digitalDirty}>
+            <Play aria-hidden="true" size={18} />
+            {isZh ? "更新數位分析" : "Run Digital Analysis"}
+          </button>
+        </div>
       </form>
 
       {analogResult && digitalResult ? (
@@ -3026,13 +3090,20 @@ function DigitalControllerWorkspace({
                 : "Analog compensator settings changed. Re-run the analog analysis so the digital result uses the latest Gc(s)."}
             </div>
           )}
+          {digitalDirty && (
+            <div className="status warning">
+              {isZh
+                ? "數位控制器參數已變更。按「更新數位分析」後才會重新計算 Bode、delay、aliasing 與 SIMPLIS 輸出。"
+                : "Digital controller settings changed. Run digital analysis to refresh Bode, delay, aliasing, and SIMPLIS outputs."}
+            </div>
+          )}
           <div className="summary-strip">
             <Metric label="Source" value={compensatorTypeLabels[analogResult.compensatorType]} />
             <Metric label="f_C" value={formatFrequency(analogResult.crossoverFrequency)} />
             <Metric label="Analog PM" value={formatOptionalPhase(analogResult.stabilityMargins.phaseMarginDeg)} />
             <Metric label="f_s" value={formatDigitalFrequency(digitalResult.samplingFrequency)} />
           </div>
-          <DigitalCompensatorPanel analogResult={analogResult} result={digitalResult} locale={locale} />
+          <MemoizedDigitalCompensatorPanel analogResult={analogResult} result={digitalResult} locale={locale} />
         </section>
       ) : (
         <section className="result-panel pending-panel">
@@ -3535,6 +3606,8 @@ function DigitalCompensatorPanel({
     </section>
   );
 }
+
+const MemoizedDigitalCompensatorPanel = memo(DigitalCompensatorPanel);
 
 function formatDigitalFrequency(hertz: number): string {
   if (!Number.isFinite(hertz)) {
