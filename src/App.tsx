@@ -9,6 +9,7 @@ import {
   BookOpenText,
   Calculator,
   CircuitBoard,
+  Copy,
   Download,
   FileCode2,
   FileText,
@@ -3348,7 +3349,42 @@ function CompensatorResultPanel({
   dirty: boolean;
 }) {
   const t = translations[locale];
+  const [copied, setCopied] = useState(false);
   const dangerCount = result.messages.filter((message) => message.severity === "danger").length;
+  const simetrixText = locale === "zh"
+    ? {
+      title: "SIMetrix Laplace Expression",
+      copy: copied ? "已複製" : "複製",
+      aria: "SIMetrix Arbitrary Laplace Transform expression",
+      note: "直接貼到 Arbitrary Laplace Transform Transfer Function；式中的 s 使用 rad/s。",
+    }
+    : {
+      title: "SIMetrix Laplace Expression",
+      copy: copied ? "Copied" : "Copy",
+      aria: "SIMetrix Arbitrary Laplace Transform expression",
+      note: "Paste directly into the Arbitrary Laplace Transform Transfer Function. The s-domain expression uses rad/s.",
+    };
+
+  async function copySimetrixExpression() {
+    if (!result.simetrixLaplaceExpression) {
+      return;
+    }
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(result.simetrixLaplaceExpression);
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = result.simetrixLaplaceExpression;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }
+
   return (
     <section className="result-panel">
       {dirty && <div className="status warning">{t.staleNotice}</div>}
@@ -3373,6 +3409,23 @@ function CompensatorResultPanel({
       <section className="formula-panel">
         <h2>{t.bodeDisplay}</h2>
         <CombinedBodePlot result={result} locale={locale} />
+      </section>
+
+      <section className="formula-panel">
+        <div className="panel-heading">
+          <h2>{simetrixText.title}</h2>
+          <button type="button" onClick={copySimetrixExpression} disabled={!result.simetrixLaplaceExpression}>
+            <Copy aria-hidden="true" size={16} />
+            {simetrixText.copy}
+          </button>
+        </div>
+        <textarea
+          className="parameter-preview simetrix-expression-preview"
+          readOnly
+          value={result.simetrixLaplaceExpression}
+          aria-label={simetrixText.aria}
+        />
+        <p className="expression-note">{simetrixText.note}</p>
       </section>
 
       <section className="formula-panel">

@@ -55,6 +55,7 @@ describe("non-isolated op amp k-factor compensator calculations", () => {
     expect(result.poles).toHaveLength(0);
     expect(result.components.find((item) => item.label === "C1")?.ideal).toBeCloseTo(1.59155e-9, 13);
     expect(result.messages.some((message) => message.text.includes("no phase boost"))).toBe(true);
+    expect(result.simetrixLaplaceExpression).toBe("62831.8530718/s");
     const crossoverPoint = nearestBodePoint(result.compensatorBode, 1000);
     expect(crossoverPoint.magnitudeDb).toBeCloseTo(20, 0);
     expect(crossoverPoint.phaseDeg).toBeCloseTo(-90, 6);
@@ -87,6 +88,13 @@ describe("non-isolated op amp k-factor compensator calculations", () => {
     expect(result.components.find((item) => item.label === "R2")?.ideal).toBeCloseTo(r2, 8);
     expect(1 / (2 * Math.PI * r2 * c1)).toBeCloseTo(result.zeros[0], 8);
     expect((c1 + c2) / (2 * Math.PI * r2 * c1 * c2)).toBeCloseTo(result.poles[0], 8);
+    expect(result.simetrixLaplaceExpression).toBe(
+      [
+        formatSimetrixNumber((g * 2 * Math.PI * 1000) / k),
+        `*(1+s/${formatSimetrixNumber((2 * Math.PI * 1000) / k)})`,
+        `/(s*(1+s/${formatSimetrixNumber(2 * Math.PI * 1000 * k)}))`,
+      ].join(""),
+    );
     const crossoverPoint = nearestBodePoint(result.compensatorBode, 1000);
     expect(crossoverPoint.magnitudeDb).toBeCloseTo(20, 0);
     expect(crossoverPoint.phaseDeg).toBeCloseTo(-90 + boost, 0);
@@ -128,6 +136,15 @@ describe("non-isolated op amp k-factor compensator calculations", () => {
     expect((c1 + c2) / (2 * Math.PI * r2 * c1 * c2)).toBeCloseTo(result.poles[0], 8);
     expect(1 / (2 * Math.PI * (20_000 + r3) * c3)).toBeCloseTo(result.zeros[1], 8);
     expect(1 / (2 * Math.PI * r3 * c3)).toBeCloseTo(result.poles[1], 8);
+    expect(result.simetrixLaplaceExpression).toBe(
+      [
+        formatSimetrixNumber((g * 2 * Math.PI * 10_000) / k),
+        `*(1+s/${formatSimetrixNumber((2 * Math.PI * 10_000) / sqrtK)})`,
+        `*(1+s/${formatSimetrixNumber((2 * Math.PI * 10_000) / sqrtK)})`,
+        `/(s*(1+s/${formatSimetrixNumber(2 * Math.PI * 10_000 * sqrtK)})`,
+        `*(1+s/${formatSimetrixNumber(2 * Math.PI * 10_000 * sqrtK)}))`,
+      ].join(""),
+    );
     const crossoverPoint = nearestBodePoint(result.compensatorBode, 10_000);
     expect(crossoverPoint.magnitudeDb).toBeCloseTo(40, 0);
     expect(crossoverPoint.phaseDeg).toBeCloseTo(-90 + boost, 0);
@@ -201,6 +218,9 @@ describe("non-isolated op amp k-factor compensator calculations", () => {
 
     expect(result.zeros).toEqual([2000, 8000]);
     expect(result.poles).toEqual([50_000, 50_000]);
+    expect(result.simetrixLaplaceExpression).toContain("(1+s/12566.3706144)");
+    expect(result.simetrixLaplaceExpression).toContain("(1+s/50265.4824574)");
+    expect(result.simetrixLaplaceExpression).toContain("(1+s/314159.265359)");
     expect(result.components.some((item) => item.label === "R3")).toBe(true);
     expect(result.components.some((item) => item.label === "C3")).toBe(true);
   });
@@ -216,4 +236,8 @@ function nearestBodePoint(
       ? point
       : best,
   );
+}
+
+function formatSimetrixNumber(value: number): string {
+  return Number(value.toPrecision(12)).toString();
 }

@@ -75,6 +75,7 @@ export type CompensatorResult = {
   compensatorBode: CompensatorBodePoint[];
   loopGainBode: CompensatorBodePoint[];
   stabilityMargins: LoopStabilityMetrics;
+  simetrixLaplaceExpression: string;
   bodeSummary: {
     count: number;
     minFrequency: number;
@@ -305,6 +306,12 @@ export function calculateCompensator(input: CompensatorInputs): CompensatorResul
     };
   });
   const stabilityMargins = calculateStabilityMargins(loopGainBode);
+  const simetrixLaplaceExpression = buildSimetrixLaplaceExpression({
+    crossoverFrequency: input.crossoverFrequency,
+    gainAtCrossover,
+    zeros: network.zeros,
+    poles: network.poles,
+  });
 
   return {
     compensatorType: input.compensatorType,
@@ -325,6 +332,7 @@ export function calculateCompensator(input: CompensatorInputs): CompensatorResul
     compensatorBode,
     loopGainBode,
     stabilityMargins,
+    simetrixLaplaceExpression,
     bodeSummary: summary,
     messages,
     lines: [
@@ -360,6 +368,11 @@ export function calculateCompensator(input: CompensatorInputs): CompensatorResul
           ...network.zeros.map((zero) => `zero ${formatFrequency(zero)}`),
           ...network.poles.map((pole) => `pole ${formatFrequency(pole)}`),
         ].join(", ") || `f_p0 = ${formatFrequency(originPoleFrequency ?? Number.NaN)}`,
+      },
+      {
+        label: "SIMetrix Arbitrary Laplace expression",
+        expression: "Gc(s) = K x PRODUCT(1 + s / wz) / (s x PRODUCT(1 + s / wp))",
+        result: simetrixLaplaceExpression || "Unavailable until all frequencies and gains are valid.",
       },
       {
         label: "Component definitions",
@@ -803,6 +816,60 @@ function componentFormula(type: CompensatorType): string {
     return "C1 = 1 / (2pi x f_C x G x R1), R2 = k / (2pi x f_C x C1), C2 = C1 / (k^2 - 1); exact fp = (C1 + C2) / (2pi x R2 x C1 x C2)";
   }
   return "C2 = 1 / (2pi x f_C x G x R1), C1 = C2 x (k - 1), R2 = sqrt(k) / (2pi x f_C x C1), R3 = R1 / (k - 1), C3 = 1 / (2pi x f_C x sqrt(k) x R3)";
+}
+
+function buildSimetrixLaplaceExpression(input: {
+  crossoverFrequency: number;
+  gainAtCrossover: number;
+  zeros: number[];
+  poles: number[];
+}): string {
+  if (
+    !Number.isFinite(input.crossoverFrequency) ||
+    !Number.isFinite(input.gainAtCrossover) ||
+    input.crossoverFrequency <= 0 ||
+    input.gainAtCrossover <= 0
+  ) {
+    return "";
+  }
+  const shapeAtCrossover = compensatorShapeAt({
+    frequency: input.crossoverFrequency,
+    zeros: input.zeros,
+    poles: input.poles,
+  });
+  if (!Number.isFinite(shapeAtCrossover.magnitude) || shapeAtCrossover.magnitude <= 0) {
+    return "";
+  }
+  const k = input.gainAtCrossover / shapeAtCrossover.magnitude;
+  if (!Number.isFinite(k) || k <= 0) {
+    return "";
+  }
+
+  const numerator = [
+    formatSimetrixNumber(k),
+    ...input.zeros
+      .filter((zero) => Number.isFinite(zero) && zero > 0)
+      .map((zero) => `(1+s/${formatSimetrixNumber(toAngularFrequency(zero))})`),
+  ].join("*");
+  const denominatorFactors = [
+    "s",
+    ...input.poles
+      .filter((pole) => Number.isFinite(pole) && pole > 0)
+      .map((pole) => `(1+s/${formatSimetrixNumber(toAngularFrequency(pole))})`),
+  ];
+  const denominator = denominatorFactors.length === 1
+    ? denominatorFactors[0]
+    : `(${denominatorFactors.join("*")})`;
+
+  return `${numerator}/${denominator}`;
+}
+
+function toAngularFrequency(frequency: number): number {
+  return 2 * Math.PI * frequency;
+}
+
+function formatSimetrixNumber(value: number): string {
+  return Number(value.toPrecision(12)).toString();
 }
 
 function component(

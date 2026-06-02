@@ -1,5 +1,17 @@
 # Completed
 
+## Add SIMetrix Laplace Expression Output
+
+- Completion date: 2026-06-02
+- Modified files:
+  - `src/lib/compensatorCalculator.ts`
+  - `src/lib/compensatorCalculator.test.ts`
+  - `src/App.tsx`
+  - `src/styles.css`
+  - `tasks/in-progress.md`
+  - `tasks/completed.md`
+- Notes: Added a copy-ready `simetrixLaplaceExpression` to analog compensator results. The expression uses normalized `1+s/w` factors with all zero and pole frequencies converted from Hz to rad/s, and scales `K` so the expression matches the internal `Gc(s)` gain at `f_C`. The analog compensator result panel now shows the SIMetrix Laplace expression in a read-only preview with a copy button and clipboard fallback. Added Type I/II/III assertions for generated expressions. Validation passed with `npm run lint`, `npx vitest run src/lib/compensatorCalculator.test.ts`, `npm run test`, and `npm run build`. Browser verification was attempted via tool discovery, but the in-app Browser tool was not exposed in this environment.
+
 ## Digital Controller Draft Input Optimization
 
 - Completion date: 2026-06-02
